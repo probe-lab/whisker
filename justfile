@@ -9,11 +9,11 @@ clean:
 test:
     go test ./...
 
-build-all: build-whisker build-wkit
-
-build-whisker:
+build:
     mkdir -p dist
     go build -o dist/whisker ./cmd/whisker
+
+build-all: build build-wkit
 
 build-wkit:
     mkdir -p dist
