@@ -6,6 +6,9 @@ walrus_publisher   := "https://publisher.walrus-testnet.walrus.space"
 clean:
     rm -rf dist
 
+test:
+    go test ./...
+
 build-all: build-whisker build-wkit
 
 build-whisker:
