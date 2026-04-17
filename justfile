@@ -19,8 +19,8 @@ build-whisker-fetch:
     mkdir -p dist
     go build -o dist/whisker-fetch ./cmd/whisker-fetch
 
-whisker-watch: build-whisker-watch
+watch: build-whisker-watch
     ./dist/whisker-watch --rpc-url {{sui_rpc_url}} --package {{walrus_package_id}} --human
 
-whisker-fetch blob_id: build-whisker-fetch
+fetch blob_id: build-whisker-fetch
     ./dist/whisker-fetch --aggregator {{walrus_aggregator}} --out {{blob_id}} {{blob_id}}
