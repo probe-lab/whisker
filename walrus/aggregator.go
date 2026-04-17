@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"time"
@@ -41,8 +42,10 @@ func (c *AggregatorClient) FetchBlob(ctx context.Context, blobID string, w io.Wr
 		return nil, fmt.Errorf("invalid blob id: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		fmt.Sprintf("%s/v1/blobs/%s", c.BaseURL, urlID), nil)
+	url := fmt.Sprintf("%s/v1/blobs/%s", c.BaseURL, urlID)
+	slog.Debug("fetching blob", "url", url, "blob_id_base64", urlID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -73,19 +76,31 @@ func (c *AggregatorClient) FetchBlob(ctx context.Context, blobID string, w io.Wr
 	}, nil
 }
 
+// BlobIDBase64 returns the base64url representation of a blob ID.
+// Decimal u256 strings (as returned by Walrus on-chain events) are converted
+// to the 32-byte little-endian base64url form used by the Walrus HTTP API.
+// Strings that are not valid decimals are returned unchanged.
+func BlobIDBase64(id string) (string, error) {
+	return normaliseBlobID(id)
+}
+
 // normaliseBlobID converts a decimal blob ID to base64url if necessary.
-// A decimal u256 string is converted to a 32-byte big-endian base64url value.
-// Any other string is returned unchanged (assumed to be base64url already).
+// Walrus stores blob IDs as 32-byte little-endian values; decimal u256 strings
+// (as returned by Sui on-chain events) are converted accordingly.
+// Any non-decimal string is returned unchanged (assumed to be base64url already).
 func normaliseBlobID(id string) (string, error) {
 	n := new(big.Int)
 	if _, ok := n.SetString(id, 10); !ok {
 		return id, nil
 	}
-	b := n.Bytes()
-	if len(b) > 32 {
-		return "", fmt.Errorf("value too large (%d bytes, max 32)", len(b))
+	be := n.Bytes() // big-endian from math/big
+	if len(be) > 32 {
+		return "", fmt.Errorf("value too large (%d bytes, max 32)", len(be))
 	}
-	padded := make([]byte, 32)
-	copy(padded[32-len(b):], b)
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(padded), nil
+	// Convert to 32-byte little-endian (LSB first, zero-padded at the high end).
+	var le [32]byte
+	for i, b := range be {
+		le[len(be)-1-i] = b
+	}
+	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(le[:]), nil
 }

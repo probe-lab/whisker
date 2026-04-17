@@ -161,21 +161,22 @@ func printHuman(env *walrus.EventEnvelope) {
 	switch e := env.Event.(type) {
 	case *walrus.BlobRegistered:
 		fmt.Printf("%s  %-15s  %s  epoch=%d end_epoch=%d size=%s\n",
-			ts, env.EventType, truncateBlobID(e.BlobID), e.Epoch, e.EndEpoch, e.Size)
+			ts, env.EventType, formatBlobID(e.BlobID), e.Epoch, e.EndEpoch, e.Size)
 	case *walrus.BlobCertified:
 		fmt.Printf("%s  %-15s  %s  epoch=%d end_epoch=%d\n",
-			ts, env.EventType, truncateBlobID(e.BlobID), e.Epoch, e.EndEpoch)
+			ts, env.EventType, formatBlobID(e.BlobID), e.Epoch, e.EndEpoch)
 	case *walrus.BlobDeleted:
 		fmt.Printf("%s  %-15s  %s  epoch=%d end_epoch=%d\n",
-			ts, env.EventType, truncateBlobID(e.BlobID), e.Epoch, e.EndEpoch)
+			ts, env.EventType, formatBlobID(e.BlobID), e.Epoch, e.EndEpoch)
 	}
 }
 
-// truncateBlobID shortens a decimal blob ID for display.
-func truncateBlobID(id string) string {
-	const maxLen = 20
-	if len(id) <= maxLen {
+// formatBlobID returns the base64url form of a blob ID for display.
+// Falls back to the original string if conversion fails.
+func formatBlobID(id string) string {
+	b64, err := walrus.BlobIDBase64(id)
+	if err != nil {
 		return id
 	}
-	return id[:maxLen] + "..."
+	return b64
 }
