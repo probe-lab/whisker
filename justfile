@@ -6,29 +6,21 @@ walrus_publisher   := "https://publisher.walrus-testnet.walrus.space"
 clean:
     rm -rf dist
 
-build-all: build-whisker build-whisker-watch build-whisker-fetch build-whisker-publish
+build-all: build-whisker build-wkit
 
 build-whisker:
     mkdir -p dist
     go build -o dist/whisker ./cmd/whisker
 
-build-whisker-watch:
+build-wkit:
     mkdir -p dist
-    go build -o dist/whisker-watch ./cmd/whisker-watch
+    go build -o dist/wkit ./cmd/wkit
 
-build-whisker-fetch:
-    mkdir -p dist
-    go build -o dist/whisker-fetch ./cmd/whisker-fetch
+watch: build-wkit
+    ./dist/wkit watch --rpc-url {{sui_rpc_url}} --package {{walrus_package_id}} --human
 
-build-whisker-publish:
-    mkdir -p dist
-    go build -o dist/whisker-publish ./cmd/whisker-publish
+fetch blob_id: build-wkit
+    ./dist/wkit fetch --aggregator {{walrus_aggregator}} --out {{blob_id}} {{blob_id}}
 
-watch: build-whisker-watch
-    ./dist/whisker-watch --rpc-url {{sui_rpc_url}} --package {{walrus_package_id}} --human
-
-fetch blob_id: build-whisker-fetch
-    ./dist/whisker-fetch --aggregator {{walrus_aggregator}} --out {{blob_id}} {{blob_id}}
-
-publish file: build-whisker-publish
-    ./dist/whisker-publish --publisher {{walrus_publisher}} {{file}}
+publish file: build-wkit
+    ./dist/wkit publish --publisher {{walrus_publisher}} {{file}}

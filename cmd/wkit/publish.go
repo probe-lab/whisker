@@ -12,56 +12,35 @@ import (
 	"github.com/probe-lab/whisker/walrus"
 )
 
-func main() {
-	app := &cli.Command{
-		Name:      "whisker-publish",
+func publishCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "publish",
 		Usage:     "Upload a file to a Walrus publisher",
 		ArgsUsage: "<file>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "publisher",
 				Usage:    "Walrus publisher base URL",
-				Sources:  cli.EnvVars("WHISKER_PUBLISH_PUBLISHER_URL"),
+				Sources:  cli.EnvVars("WKIT_PUBLISH_PUBLISHER_URL"),
 				Required: true,
 			},
 			&cli.UintFlag{
 				Name:    "epochs",
 				Usage:   "number of epochs to store the blob (0 uses publisher default)",
 				Value:   1,
-				Sources: cli.EnvVars("WHISKER_PUBLISH_EPOCHS"),
+				Sources: cli.EnvVars("WKIT_PUBLISH_EPOCHS"),
 			},
 			&cli.BoolFlag{
 				Name:    "deletable",
 				Usage:   "make the blob deletable by the owner",
-				Sources: cli.EnvVars("WHISKER_PUBLISH_DELETABLE"),
-			},
-			&cli.StringFlag{
-				Name:    "log-level",
-				Usage:   "log level (debug, info, warn, error)",
-				Value:   "info",
-				Sources: cli.EnvVars("WHISKER_PUBLISH_LOG_LEVEL"),
+				Sources: cli.EnvVars("WKIT_PUBLISH_DELETABLE"),
 			},
 		},
-		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			level := slog.LevelInfo
-			if err := level.UnmarshalText([]byte(cmd.String("log-level"))); err != nil {
-				return ctx, err
-			}
-			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-				Level: level,
-			})))
-			return ctx, nil
-		},
-		Action: run,
-	}
-
-	if err := app.Run(context.Background(), os.Args); err != nil {
-		slog.Error("fatal", "err", err)
-		os.Exit(1)
+		Action: runPublish,
 	}
 }
 
-func run(ctx context.Context, cmd *cli.Command) error {
+func runPublish(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() == 0 {
 		return fmt.Errorf("file path required")
 	}
@@ -92,10 +71,10 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("upload: %w", err)
 	}
 
-	return printResult(result)
+	return printUploadResult(result)
 }
 
-func printResult(result *walrus.UploadResult) error {
+func printUploadResult(result *walrus.UploadResult) error {
 	var out any
 
 	switch {

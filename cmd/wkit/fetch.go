@@ -13,56 +13,35 @@ import (
 	"github.com/probe-lab/whisker/walrus"
 )
 
-func main() {
-	app := &cli.Command{
-		Name:      "whisker-fetch",
+func fetchCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "fetch",
 		Usage:     "Fetch a blob from a Walrus aggregator",
 		ArgsUsage: "<blob-id>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "aggregator",
 				Usage:    "Walrus aggregator base URL",
-				Sources:  cli.EnvVars("WHISKER_FETCH_AGGREGATOR"),
+				Sources:  cli.EnvVars("WKIT_FETCH_AGGREGATOR"),
 				Required: true,
 			},
 			&cli.StringFlag{
 				Name:    "out",
 				Usage:   "output file path (default: blob ID as filename)",
-				Sources: cli.EnvVars("WHISKER_FETCH_OUT"),
+				Sources: cli.EnvVars("WKIT_FETCH_OUT"),
 			},
 			&cli.DurationFlag{
 				Name:    "timeout",
 				Usage:   "request timeout",
 				Value:   60 * time.Second,
-				Sources: cli.EnvVars("WHISKER_FETCH_TIMEOUT"),
-			},
-			&cli.StringFlag{
-				Name:    "log-level",
-				Usage:   "log level (debug, info, warn, error)",
-				Value:   "info",
-				Sources: cli.EnvVars("WHISKER_FETCH_LOG_LEVEL"),
+				Sources: cli.EnvVars("WKIT_FETCH_TIMEOUT"),
 			},
 		},
-		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			level := slog.LevelInfo
-			if err := level.UnmarshalText([]byte(cmd.String("log-level"))); err != nil {
-				return ctx, err
-			}
-			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-				Level: level,
-			})))
-			return ctx, nil
-		},
-		Action: run,
-	}
-
-	if err := app.Run(context.Background(), os.Args); err != nil {
-		slog.Error("fatal", "err", err)
-		os.Exit(1)
+		Action: runFetch,
 	}
 }
 
-func run(ctx context.Context, cmd *cli.Command) error {
+func runFetch(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() == 0 {
 		return fmt.Errorf("blob ID required")
 	}
@@ -78,7 +57,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 
 	slog.Info("fetching blob", "blob_id", blobID, "out", outPath)
 
-	tmp, err := os.CreateTemp(filepath.Dir(outPath), ".whisker-fetch-*")
+	tmp, err := os.CreateTemp(filepath.Dir(outPath), ".wkit-fetch-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}

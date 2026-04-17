@@ -17,66 +17,45 @@ import (
 	"github.com/probe-lab/whisker/walrus"
 )
 
-func main() {
-	app := &cli.Command{
-		Name:  "whisker-watch",
+func watchCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "watch",
 		Usage: "Watch Walrus events on Sui and print them to stdout as newline-delimited JSON",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "rpc-url",
 				Usage:    "Sui JSON-RPC endpoint URL",
-				Sources:  cli.EnvVars("WHISKER_WATCH_RPC_URL"),
+				Sources:  cli.EnvVars("WKIT_WATCH_RPC_URL"),
 				Required: true,
 			},
 			&cli.StringFlag{
 				Name:     "package",
 				Usage:    "Walrus package ID on Sui",
-				Sources:  cli.EnvVars("WHISKER_WATCH_PACKAGE_ID"),
+				Sources:  cli.EnvVars("WKIT_WATCH_PACKAGE_ID"),
 				Required: true,
 			},
 			&cli.DurationFlag{
 				Name:    "poll-interval",
 				Usage:   "how often to poll for new events when caught up",
 				Value:   5 * time.Second,
-				Sources: cli.EnvVars("WHISKER_WATCH_POLL_INTERVAL"),
+				Sources: cli.EnvVars("WKIT_WATCH_POLL_INTERVAL"),
 			},
 			&cli.StringFlag{
 				Name:    "cursor",
 				Usage:   "JSON-encoded EventCursor to resume from (omit to start from latest)",
-				Sources: cli.EnvVars("WHISKER_WATCH_CURSOR"),
+				Sources: cli.EnvVars("WKIT_WATCH_CURSOR"),
 			},
 			&cli.BoolFlag{
 				Name:    "human",
 				Usage:   "print events in human-readable format instead of JSON",
-				Sources: cli.EnvVars("WHISKER_WATCH_HUMAN"),
-			},
-			&cli.StringFlag{
-				Name:    "log-level",
-				Usage:   "log level (debug, info, warn, error)",
-				Value:   "info",
-				Sources: cli.EnvVars("WHISKER_WATCH_LOG_LEVEL"),
+				Sources: cli.EnvVars("WKIT_WATCH_HUMAN"),
 			},
 		},
-		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			level := slog.LevelInfo
-			if err := level.UnmarshalText([]byte(cmd.String("log-level"))); err != nil {
-				return ctx, err
-			}
-			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-				Level: level,
-			})))
-			return ctx, nil
-		},
-		Action: run,
-	}
-
-	if err := app.Run(context.Background(), os.Args); err != nil {
-		slog.Error("fatal", "err", err)
-		os.Exit(1)
+		Action: runWatch,
 	}
 }
 
-func run(ctx context.Context, cmd *cli.Command) error {
+func runWatch(ctx context.Context, cmd *cli.Command) error {
 	client := sui.NewClient(cmd.String("rpc-url"))
 	filter := sui.MoveEventModuleFilter(cmd.String("package"), "events")
 	pollInterval := cmd.Duration("poll-interval")
@@ -171,8 +150,6 @@ func printHuman(env *walrus.EventEnvelope) {
 	}
 }
 
-// formatBlobID returns the base64url form of a blob ID for display.
-// Falls back to the original string if conversion fails.
 func formatBlobID(id string) string {
 	b64, err := walrus.BlobIDBase64(id)
 	if err != nil {
