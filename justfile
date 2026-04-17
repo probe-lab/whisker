@@ -8,4 +8,4 @@ build-all:
     done
 
 sui-watch:
-    SUI_RPC_URL={{sui_rpc_url}} WALRUS_PACKAGE_ID={{walrus_package_id}} ./dist/sui-watch | jq .
+    ./dist/sui-watch --rpc-url {{sui_rpc_url}} --package {{walrus_package_id}} | jq .
