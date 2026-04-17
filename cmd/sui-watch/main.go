@@ -86,6 +86,15 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	if cursor == nil {
+		var err error
+		cursor, err = client.LatestEventCursor(ctx, filter)
+		if err != nil {
+			return fmt.Errorf("fetch latest cursor: %w", err)
+		}
+		slog.Debug("starting from latest cursor", "cursor", cursor)
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 
 	slog.Info("watching walrus events", "rpc", cmd.String("rpc-url"), "package", cmd.String("package"))

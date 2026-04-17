@@ -100,8 +100,26 @@ type Object struct {
 // QueryEvents queries events matching filter, starting from cursor (nil = from genesis).
 // limit controls the maximum number of events per page.
 func (c *Client) QueryEvents(ctx context.Context, filter EventFilter, cursor *EventCursor, limit int) (*EventPage, error) {
+	return c.queryEvents(ctx, filter, cursor, limit, false)
+}
+
+// LatestEventCursor returns the cursor of the most recent event matching filter,
+// or nil if no matching events exist yet.
+func (c *Client) LatestEventCursor(ctx context.Context, filter EventFilter) (*EventCursor, error) {
+	page, err := c.queryEvents(ctx, filter, nil, 1, true)
+	if err != nil {
+		return nil, err
+	}
+	if len(page.Data) == 0 {
+		return nil, nil
+	}
+	cursor := page.Data[0].ID
+	return &cursor, nil
+}
+
+func (c *Client) queryEvents(ctx context.Context, filter EventFilter, cursor *EventCursor, limit int, descending bool) (*EventPage, error) {
 	var page EventPage
-	if err := c.call(ctx, "suix_queryEvents", []any{filter, cursor, limit, false}, &page); err != nil {
+	if err := c.call(ctx, "suix_queryEvents", []any{filter, cursor, limit, descending}, &page); err != nil {
 		return nil, err
 	}
 	return &page, nil
