@@ -63,6 +63,7 @@ func NewPublisherClient(baseURL string) *PublisherClient {
 type UploadOptions struct {
 	Epochs    uint32 // number of epochs to store; 0 uses the publisher default (usually 1)
 	Deletable bool   // whether the blob can be deleted by the owner
+	SendTo    string // Sui address to send the blob object to; empty uses the publisher's address
 }
 
 // UploadBlob streams r to the publisher and returns the upload result.
@@ -76,6 +77,9 @@ func (c *PublisherClient) UploadBlob(ctx context.Context, r io.Reader, contentLe
 	}
 	if opts.Deletable {
 		params.Set("deletable", "true")
+	}
+	if opts.SendTo != "" {
+		params.Set("send_object_to", opts.SendTo)
 	}
 	if len(params) > 0 {
 		endpoint = endpoint + "?" + params.Encode()

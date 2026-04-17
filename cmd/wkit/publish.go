@@ -9,6 +9,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/probe-lab/whisker/sui"
 	"github.com/probe-lab/whisker/walrus"
 )
 
@@ -35,6 +36,11 @@ func publishCommand() *cli.Command {
 				Usage:   "make the blob deletable by the owner",
 				Sources: cli.EnvVars("WKIT_PUBLISH_DELETABLE"),
 			},
+			&cli.StringFlag{
+				Name:    "send-to",
+				Usage:   "Sui address to receive the blob object (default: address derived from --private-key if set)",
+				Sources: cli.EnvVars("WKIT_PUBLISH_SEND_TO"),
+			},
 		},
 		Action: runPublish,
 	}
@@ -57,14 +63,26 @@ func runPublish(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("stat file: %w", err)
 	}
 
+	sendTo := cmd.String("send-to")
+	if sendTo == "" {
+		if pk := cmd.Root().String("private-key"); pk != "" {
+			signer, err := sui.LoadSigner(pk)
+			if err != nil {
+				return fmt.Errorf("derive address from private key: %w", err)
+			}
+			sendTo = signer.Address
+		}
+	}
+
 	opts := walrus.UploadOptions{
 		Epochs:    uint32(cmd.Uint("epochs")),
 		Deletable: cmd.Bool("deletable"),
+		SendTo:    sendTo,
 	}
 
 	client := walrus.NewPublisherClient(cmd.String("publisher"))
 
-	slog.Info("uploading blob", "file", filePath, "size", info.Size(), "epochs", opts.Epochs, "deletable", opts.Deletable)
+	slog.Info("uploading blob", "file", filePath, "size", info.Size(), "epochs", opts.Epochs, "deletable", opts.Deletable, "send_to", opts.SendTo)
 
 	result, err := client.UploadBlob(ctx, f, info.Size(), opts)
 	if err != nil {

@@ -26,4 +26,7 @@ fetch blob_id: build-wkit
     ./dist/wkit fetch --aggregator {{walrus_aggregator}} --out {{blob_id}} {{blob_id}}
 
 publish file: build-wkit
-    ./dist/wkit publish --publisher {{walrus_publisher}} {{file}}
+    ./dist/wkit publish --deletable --publisher {{walrus_publisher}} {{file}}
+
+delete object_id: build-wkit
+    ./dist/wkit delete --rpc-url {{sui_rpc_url}} {{object_id}}

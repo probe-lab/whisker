@@ -19,6 +19,11 @@ func main() {
 				Value:   "info",
 				Sources: cli.EnvVars("WKIT_LOG_LEVEL"),
 			},
+			&cli.StringFlag{
+				Name:    "private-key",
+				Usage:   "Sui private key: suiprivkey bech32 or BIP-39 mnemonic",
+				Sources: cli.EnvVars("WKIT_PRIVATE_KEY"),
+			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			level := slog.LevelInfo
@@ -34,6 +39,7 @@ func main() {
 			fetchCommand(),
 			publishCommand(),
 			watchCommand(),
+			deleteCommand(),
 		},
 	}
 
