@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -44,6 +45,11 @@ func main() {
 				Usage:   "JSON-encoded EventCursor to resume from (omit to start from latest)",
 				Sources: cli.EnvVars("START_CURSOR"),
 			},
+			&cli.BoolFlag{
+				Name:    "human",
+				Usage:   "print events in human-readable format instead of JSON",
+				Sources: cli.EnvVars("HUMAN"),
+			},
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log level (debug, info, warn, error)",
@@ -74,6 +80,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	client := sui.NewClient(cmd.String("rpc-url"))
 	filter := sui.MoveEventModuleFilter(cmd.String("package"), "events")
 	pollInterval := cmd.Duration("poll-interval")
+	human := cmd.Bool("human")
 
 	var cursor *sui.EventCursor
 	if raw := cmd.String("cursor"); raw != "" {
@@ -120,8 +127,12 @@ func run(ctx context.Context, cmd *cli.Command) error {
 				slog.Warn("skipping unrecognised event", "type", ev.Type, "err", err)
 				continue
 			}
-			if err := enc.Encode(envelope); err != nil {
-				return fmt.Errorf("encode event: %w", err)
+			if human {
+				printHuman(envelope)
+			} else {
+				if err := enc.Encode(envelope); err != nil {
+					return fmt.Errorf("encode event: %w", err)
+				}
 			}
 		}
 
@@ -137,4 +148,34 @@ func run(ctx context.Context, cmd *cli.Command) error {
 			}
 		}
 	}
+}
+
+func printHuman(env *walrus.EventEnvelope) {
+	ts := "-"
+	if env.TimestampMs != "" {
+		if ms, err := strconv.ParseInt(env.TimestampMs, 10, 64); err == nil {
+			ts = time.UnixMilli(ms).UTC().Format("2006-01-02 15:04:05 UTC")
+		}
+	}
+
+	switch e := env.Event.(type) {
+	case *walrus.BlobRegistered:
+		fmt.Printf("%s  %-15s  %s  epoch=%d end_epoch=%d size=%s\n",
+			ts, env.EventType, truncateBlobID(e.BlobID), e.Epoch, e.EndEpoch, e.Size)
+	case *walrus.BlobCertified:
+		fmt.Printf("%s  %-15s  %s  epoch=%d end_epoch=%d\n",
+			ts, env.EventType, truncateBlobID(e.BlobID), e.Epoch, e.EndEpoch)
+	case *walrus.BlobDeleted:
+		fmt.Printf("%s  %-15s  %s  epoch=%d end_epoch=%d\n",
+			ts, env.EventType, truncateBlobID(e.BlobID), e.Epoch, e.EndEpoch)
+	}
+}
+
+// truncateBlobID shortens a decimal blob ID for display.
+func truncateBlobID(id string) string {
+	const maxLen = 20
+	if len(id) <= maxLen {
+		return id
+	}
+	return id[:maxLen] + "..."
 }

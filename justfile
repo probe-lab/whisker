@@ -12,4 +12,4 @@ build-sui-watch:
     go build -o dist/sui-watch ./cmd/sui-watch
 
 sui-watch: build-sui-watch
-    ./dist/sui-watch --rpc-url {{sui_rpc_url}} --package {{walrus_package_id}} | jq .
+    ./dist/sui-watch --rpc-url {{sui_rpc_url}} --package {{walrus_package_id}} --human
