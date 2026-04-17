@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/urfave/cli/v3"
@@ -72,20 +73,29 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		outPath = blobID
 	}
 
-	f, err := os.Create(outPath)
-	if err != nil {
-		return fmt.Errorf("create output file: %w", err)
-	}
-	defer f.Close()
-
 	client := walrus.NewAggregatorClient(cmd.String("aggregator"))
 	client.HTTPClient.Timeout = cmd.Duration("timeout")
 
 	slog.Info("fetching blob", "blob_id", blobID, "out", outPath)
 
-	result, err := client.FetchBlob(ctx, blobID, f)
+	tmp, err := os.CreateTemp(filepath.Dir(outPath), ".whisker-fetch-*")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		tmp.Close()
+		os.Remove(tmpName)
+	}()
+
+	result, err := client.FetchBlob(ctx, blobID, tmp)
 	if err != nil {
 		return fmt.Errorf("fetch blob: %w", err)
+	}
+	tmp.Close()
+
+	if err := os.Rename(tmpName, outPath); err != nil {
+		return fmt.Errorf("save output file: %w", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "size:       %d bytes\n", result.Size)
