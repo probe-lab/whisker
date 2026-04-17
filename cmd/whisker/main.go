@@ -17,7 +17,7 @@ func main() {
 				Name:    "log-level",
 				Usage:   "log level (debug, info, warn, error)",
 				Value:   "info",
-				Sources: cli.EnvVars("LOG_LEVEL"),
+				Sources: cli.EnvVars("WHISKER_LOG_LEVEL"),
 			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

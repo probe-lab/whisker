@@ -19,42 +19,42 @@ import (
 
 func main() {
 	app := &cli.Command{
-		Name:  "sui-watch",
+		Name:  "whisker-watch",
 		Usage: "Watch Walrus events on Sui and print them to stdout as newline-delimited JSON",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "rpc-url",
 				Usage:    "Sui JSON-RPC endpoint URL",
-				Sources:  cli.EnvVars("SUI_RPC_URL"),
+				Sources:  cli.EnvVars("WHISKER_WATCH_RPC_URL"),
 				Required: true,
 			},
 			&cli.StringFlag{
 				Name:     "package",
 				Usage:    "Walrus package ID on Sui",
-				Sources:  cli.EnvVars("WALRUS_PACKAGE_ID"),
+				Sources:  cli.EnvVars("WHISKER_WATCH_PACKAGE_ID"),
 				Required: true,
 			},
 			&cli.DurationFlag{
 				Name:    "poll-interval",
 				Usage:   "how often to poll for new events when caught up",
 				Value:   5 * time.Second,
-				Sources: cli.EnvVars("POLL_INTERVAL"),
+				Sources: cli.EnvVars("WHISKER_WATCH_POLL_INTERVAL"),
 			},
 			&cli.StringFlag{
 				Name:    "cursor",
 				Usage:   "JSON-encoded EventCursor to resume from (omit to start from latest)",
-				Sources: cli.EnvVars("START_CURSOR"),
+				Sources: cli.EnvVars("WHISKER_WATCH_CURSOR"),
 			},
 			&cli.BoolFlag{
 				Name:    "human",
 				Usage:   "print events in human-readable format instead of JSON",
-				Sources: cli.EnvVars("HUMAN"),
+				Sources: cli.EnvVars("WHISKER_WATCH_HUMAN"),
 			},
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log level (debug, info, warn, error)",
 				Value:   "info",
-				Sources: cli.EnvVars("LOG_LEVEL"),
+				Sources: cli.EnvVars("WHISKER_WATCH_LOG_LEVEL"),
 			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
