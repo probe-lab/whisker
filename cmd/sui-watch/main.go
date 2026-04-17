@@ -41,7 +41,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:    "cursor",
-				Usage:   "JSON-encoded EventCursor to resume from (omit to start from genesis)",
+				Usage:   "JSON-encoded EventCursor to resume from (omit to start from latest)",
 				Sources: cli.EnvVars("START_CURSOR"),
 			},
 			&cli.StringFlag{
