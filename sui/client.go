@@ -44,6 +44,17 @@ func MoveEventTypeFilter(moveEventType string) EventFilter {
 	return EventFilter{"MoveEventType": moveEventType}
 }
 
+// MoveEventModuleFilter returns a filter that matches all events emitted by
+// the given module within a package, e.g. package "0xabc", module "events".
+func MoveEventModuleFilter(packageID, module string) EventFilter {
+	return EventFilter{
+		"MoveEventModule": map[string]string{
+			"package": packageID,
+			"module":  module,
+		},
+	}
+}
+
 // EventCursor identifies a position in the event stream.
 type EventCursor struct {
 	TxDigest string `json:"txDigest"`
