@@ -41,4 +41,5 @@ probe: build
         --probe-size 1048576 \
         --event-timeout 10m \
         --poll-interval 5s \
-        --log-level debug
+        --log-level debug \
+        --dry-run

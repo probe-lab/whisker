@@ -16,6 +16,7 @@ import (
 // StorageCheckResult holds all timing and verification data from one end-to-end
 // upload-certify-download cycle.
 type StorageCheckResult struct {
+	RunID       string // UUID v7 generated at the start of each check
 	FileSize    int64
 	BlobID      string // base64url blob ID
 	SuiObjectID string // Sui object ID of the uploaded blob; empty if blob was already certified
@@ -38,6 +39,7 @@ type StorageCheckResult struct {
 // StorageChecker runs end-to-end storage check cycles against a Walrus publisher
 // and aggregator, watching Sui events for certification confirmation.
 type StorageChecker struct {
+	RunID        string // set once at process start; copied to every result
 	Publisher    *walrus.PublisherClient
 	Aggregator   *walrus.AggregatorClient
 	Sui          *sui.Client
@@ -51,7 +53,7 @@ type StorageChecker struct {
 // uploads it, waits for BlobRegistered and BlobCertified events on Sui, downloads
 // the blob, then verifies length and SHA256 hash.
 func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*StorageCheckResult, error) {
-	result := &StorageCheckResult{FileSize: size}
+	result := &StorageCheckResult{RunID: c.RunID, FileSize: size}
 
 	tf, err := NewTempFile(dir, size)
 	if err != nil {
