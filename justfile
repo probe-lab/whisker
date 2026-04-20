@@ -30,3 +30,15 @@ publish file: build-wkit
 
 delete object_id: build-wkit
     ./dist/wkit delete --rpc-url {{sui_rpc_url}} {{object_id}}
+
+probe: build
+    ./dist/whisker \
+        --publisher {{walrus_publisher}} \
+        --aggregator {{walrus_aggregator}} \
+        --rpc-url {{sui_rpc_url}} \
+        --package {{walrus_package_id}} \
+        --interval 5m \
+        --probe-size 1048576 \
+        --event-timeout 10m \
+        --poll-interval 5s \
+        --log-level debug

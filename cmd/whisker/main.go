@@ -12,14 +12,14 @@ func main() {
 	app := &cli.Command{
 		Name:  "whisker",
 		Usage: "Walrus availability monitor",
-		Flags: []cli.Flag{
+		Flags: append([]cli.Flag{
 			&cli.StringFlag{
 				Name:    "log-level",
 				Usage:   "log level (debug, info, warn, error)",
 				Value:   "info",
 				Sources: cli.EnvVars("WHISKER_LOG_LEVEL"),
 			},
-		},
+		}, checkFlags()...),
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			level := slog.LevelInfo
 			if err := level.UnmarshalText([]byte(cmd.String("log-level"))); err != nil {
@@ -30,10 +30,7 @@ func main() {
 			})))
 			return ctx, nil
 		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			slog.Info("whisker starting")
-			return nil
-		},
+		Action: runCheck,
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -95,6 +97,54 @@ type Object struct {
 	Digest   string          `json:"digest"`
 	Type     string          `json:"type,omitempty"`
 	Content  json.RawMessage `json:"content,omitempty"`
+}
+
+// ErrStopWatching can be returned from the fn callback passed to WatchEvents to stop
+// the loop cleanly without surfacing an error to the caller.
+var ErrStopWatching = errors.New("stop watching")
+
+// WatchEvents continuously polls for events matching filter and calls fn for each one.
+// It starts from cursor (nil = genesis) and advances as pages are consumed.
+// fn may return ErrStopWatching to stop the loop without error.
+// The loop continues until ctx is cancelled or fn returns a non-nil error other than ErrStopWatching.
+// Returns ctx.Err() on context cancellation so callers can distinguish clean stop from timeout.
+func (c *Client) WatchEvents(ctx context.Context, filter EventFilter, cursor *EventCursor, pollInterval time.Duration, fn func(Event) error) error {
+	for {
+		page, err := c.QueryEvents(ctx, filter, cursor, 50)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			slog.Warn("event query failed, retrying", "err", err)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pollInterval):
+			}
+			continue
+		}
+
+		for _, ev := range page.Data {
+			if err := fn(ev); err != nil {
+				if errors.Is(err, ErrStopWatching) {
+					return nil
+				}
+				return err
+			}
+		}
+
+		if page.NextCursor != nil {
+			cursor = page.NextCursor
+		}
+
+		if !page.HasNextPage {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pollInterval):
+			}
+		}
+	}
 }
 
 // QueryEvents queries events matching filter, starting from cursor (nil = from genesis).

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -82,51 +83,27 @@ func runWatch(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	enc := json.NewEncoder(os.Stdout)
-
 	slog.Info("watching walrus events", "rpc", cmd.String("rpc-url"), "package", cmd.String("package"))
 
-	for {
-		page, err := client.QueryEvents(ctx, filter, cursor, 50)
+	err := client.WatchEvents(ctx, filter, cursor, pollInterval, func(ev sui.Event) error {
+		envelope, err := walrus.ParseEvent(ev)
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil
-			}
-			slog.Error("query events failed", "err", err)
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(pollInterval):
-			}
-			continue
+			slog.Warn("skipping unrecognised event", "type", ev.Type, "err", err)
+			return nil
 		}
-
-		for _, ev := range page.Data {
-			envelope, err := walrus.ParseEvent(ev)
-			if err != nil {
-				slog.Warn("skipping unrecognised event", "type", ev.Type, "err", err)
-				continue
-			}
-			if human {
-				printHuman(envelope)
-			} else {
-				if err := enc.Encode(envelope); err != nil {
-					return fmt.Errorf("encode event: %w", err)
-				}
+		if human {
+			printHuman(envelope)
+		} else {
+			if err := enc.Encode(envelope); err != nil {
+				return fmt.Errorf("encode event: %w", err)
 			}
 		}
-
-		if page.NextCursor != nil {
-			cursor = page.NextCursor
-		}
-
-		if !page.HasNextPage {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(pollInterval):
-			}
-		}
+		return nil
+	})
+	if errors.Is(err, context.Canceled) {
+		return nil
 	}
+	return err
 }
 
 func printHuman(env *walrus.EventEnvelope) {

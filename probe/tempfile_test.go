@@ -1,6 +1,7 @@
 package probe
 
 import (
+	"crypto/sha256"
 	"io"
 	"os"
 	"testing"
@@ -25,22 +26,32 @@ func TestNewTempFile(t *testing.T) {
 
 			path := f.Name()
 
-			// file must exist on disk
+			if f.Size() != tc.size {
+				t.Errorf("Size: got %d, want %d", f.Size(), tc.size)
+			}
+
+			// file must exist on disk with the correct size
 			info, err := os.Stat(path)
 			if err != nil {
 				t.Fatalf("stat: %v", err)
 			}
 			if info.Size() != tc.size {
-				t.Errorf("size: got %d, want %d", info.Size(), tc.size)
+				t.Errorf("disk size: got %d, want %d", info.Size(), tc.size)
 			}
 
-			// file must be readable from the start
-			n, err := io.Copy(io.Discard, f)
+			// file must be readable from the start; hash must match stored SHA256
+			h := sha256.New()
+			n, err := io.Copy(h, f)
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
 			if n != tc.size {
 				t.Errorf("read bytes: got %d, want %d", n, tc.size)
+			}
+			var got [32]byte
+			copy(got[:], h.Sum(nil))
+			if got != f.SHA256 {
+				t.Errorf("SHA256 mismatch: computed hash differs from stored hash")
 			}
 
 			if err := f.Close(); err != nil {
