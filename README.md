@@ -34,3 +34,8 @@ wkit delete  # delete a blob by Sui object ID
 - [just](https://github.com/casey/just) (command runner)
 - Access to a Sui RPC endpoint
 - Access to Walrus aggregator/publisher endpoints
+
+## License
+
+This project is licensed under the Apache License, Version 2.0 ([LICENSE](LICENSE) or
+<https://www.apache.org/licenses/LICENSE-2.0>). Copyright 2026 ProbeLab Analytics OÜ
