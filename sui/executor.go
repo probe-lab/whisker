@@ -13,6 +13,9 @@ import (
 	sdktx "github.com/block-vision/sui-go-sdk/transaction"
 )
 
+// storageResourceTypeSuffix is the Move type suffix for Walrus Storage objects.
+const storageResourceTypeSuffix = "::storage_resource::Storage"
+
 const (
 	suiCoinType      = "0x2::sui::SUI"
 	defaultGasBudget = uint64(50_000_000) // 0.05 SUI
@@ -178,6 +181,63 @@ func (e *TransactionExecutor) Execute(ctx context.Context, tx *sdktx.Transaction
 
 	slog.Debug("transaction executed", "digest", resp.Digest)
 	return resp.Digest, nil
+}
+
+// DeleteBlob deletes a deletable Walrus blob and transfers the freed Storage object
+// back to the signer. Returns the Storage object ID and the transaction digest.
+// The Storage object can be reused by a publisher configured with reuse_resources=true.
+func (e *TransactionExecutor) DeleteBlob(ctx context.Context, packageID, systemObjectID, blobObjectID string, gasBudget uint64) (storageObjectID, digest string, err error) {
+	systemArg, err := e.ResolveObject(ctx, systemObjectID, false)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve system object: %w", err)
+	}
+
+	blobArg, err := e.ResolveObject(ctx, blobObjectID, false)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve blob object: %w", err)
+	}
+
+	tx := e.NewTransaction()
+
+	systemInput := tx.Object(systemArg)
+	blobInput := tx.Object(blobArg)
+
+	// delete_blob(system: &System, blob: Blob) returns Storage
+	storage := tx.MoveCall(
+		sdkmodels.SuiAddress(packageID),
+		"system",
+		"delete_blob",
+		nil,
+		[]sdktx.Argument{systemInput, blobInput},
+	)
+
+	tx.TransferObjects([]sdktx.Argument{storage}, tx.Pure(e.Signer.Address))
+
+	if err := e.AutoSelectGas(ctx, tx, gasBudget); err != nil {
+		return "", "", fmt.Errorf("select gas: %w", err)
+	}
+
+	resp, err := tx.Execute(ctx, sdkmodels.SuiTransactionBlockOptions{
+		ShowEffects:       true,
+		ShowObjectChanges: true,
+	}, "WaitForLocalExecution")
+	if err != nil {
+		return "", "", fmt.Errorf("execute transaction: %w", err)
+	}
+
+	if resp.Effects.Status.Status != "success" {
+		return "", resp.Digest, fmt.Errorf("transaction failed: %s", resp.Effects.Status.Error)
+	}
+
+	for _, change := range resp.ObjectChanges {
+		if strings.HasSuffix(change.ObjectType, storageResourceTypeSuffix) {
+			storageObjectID = change.ObjectId
+			break
+		}
+	}
+
+	slog.Debug("blob deleted", "digest", resp.Digest, "storage_object_id", storageObjectID)
+	return storageObjectID, resp.Digest, nil
 }
 
 // parseObjectOwner extracts an ObjectOwner from the raw owner field of a SuiObjectData.

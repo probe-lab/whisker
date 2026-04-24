@@ -61,9 +61,10 @@ func NewPublisherClient(baseURL string) *PublisherClient {
 
 // UploadOptions controls how a blob is stored.
 type UploadOptions struct {
-	Epochs    uint32 // number of epochs to store; 0 uses the publisher default (usually 1)
-	Deletable bool   // whether the blob can be deleted by the owner
-	SendTo    string // Sui address to send the blob object to; empty uses the publisher's address
+	Epochs         uint32 // number of epochs to store; 0 uses the publisher default (usually 1)
+	Deletable      bool   // whether the blob can be deleted by the owner
+	SendTo         string // Sui address to send the blob object to; empty uses the publisher's address
+	ReuseResources bool   // reuse existing on-chain storage resources owned by the publisher wallet
 }
 
 // UploadBlob streams r to the publisher and returns the upload result.
@@ -80,6 +81,9 @@ func (c *PublisherClient) UploadBlob(ctx context.Context, r io.Reader, contentLe
 	}
 	if opts.SendTo != "" {
 		params.Set("send_object_to", opts.SendTo)
+	}
+	if opts.ReuseResources {
+		params.Set("reuse_resources", "true")
 	}
 	if len(params) > 0 {
 		endpoint = endpoint + "?" + params.Encode()

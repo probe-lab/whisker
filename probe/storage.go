@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -47,6 +48,14 @@ type StorageChecker struct {
 	PollInterval time.Duration // how often to poll for new events
 	EventTimeout time.Duration // how long to wait for BlobCertified before giving up
 	UploadOpts   walrus.UploadOptions
+
+	// Recycling fields: when Executor is non-nil, each successful cycle deletes the
+	// uploaded blob and returns the Storage resource to the wallet for reuse.
+	// Set SystemObjectID to the Walrus system object ID for the target network.
+	// DryRun disables deletion so recycling is skipped without error.
+	Executor       *sui.TransactionExecutor
+	SystemObjectID string
+	DryRun         bool
 }
 
 // Check executes one storage check: creates a temp file of the given size in dir,
@@ -69,8 +78,13 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 		return nil, fmt.Errorf("get latest event cursor: %w", err)
 	}
 
+	uploadOpts := c.UploadOpts
+	if c.Executor != nil {
+		uploadOpts.ReuseResources = true
+	}
+
 	result.UploadStarted = time.Now()
-	uploadResult, err := c.Publisher.UploadBlob(ctx, tf, size, c.UploadOpts)
+	uploadResult, err := c.Publisher.UploadBlob(ctx, tf, size, uploadOpts)
 	tf.Close()
 	tf.Remove()
 	if err != nil {
@@ -133,6 +147,19 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 
 	result.ContentLengthMatch = fetchResult.Size == size
 	result.ContentHashMatch = bytes.Equal(h.Sum(nil), originalHash[:])
+
+	// Recycle the storage resource after a complete successful cycle.
+	if !c.DryRun && c.Executor != nil && result.SuiObjectID != "" {
+		storageID, _, recycleErr := c.Executor.DeleteBlob(ctx, c.PackageID, c.SystemObjectID, result.SuiObjectID, 0)
+		if recycleErr != nil {
+			slog.Warn("storage recycle failed, will purchase new storage next cycle",
+				"err", recycleErr,
+				"blob_object_id", result.SuiObjectID,
+			)
+		} else {
+			slog.Info("storage recycled", "storage_object_id", storageID, "blob_object_id", result.SuiObjectID)
+		}
+	}
 
 	return result, nil
 }
