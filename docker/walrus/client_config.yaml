@@ -1,0 +1,11 @@
+system_object: 0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af
+staking_object: 0xbe46180321c30aab2f8b3501e24048377287fa708018a5b7c2792b35fe339ee3
+n_shards: 1000
+max_epochs_ahead: 53
+rpc_urls:
+  - https://fullnode.testnet.sui.io:443
+communication_config:
+  tail_handling: detached
+  upload_mode: aggressive
+  data_in_flight_auto_tune:
+    enabled: true

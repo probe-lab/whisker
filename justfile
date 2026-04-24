@@ -6,6 +6,25 @@ walrus_publisher   := "https://publisher.walrus-testnet.walrus.space"
 clean:
     rm -rf dist
 
+# start deps only: ClickHouse and a local Walrus aggregator
+env-up:
+    docker compose -f docker/compose.yaml up -d
+
+# start all components including whisker (builds image first)
+env-up-full:
+    docker compose -f docker/compose.yaml --profile full up -d --build
+
+# stop all environment services and remove containers
+env-down:
+    docker compose -f docker/compose.yaml --profile full down
+
+# follow logs; optionally pass a service name to filter
+env-logs *args='':
+    docker compose -f docker/compose.yaml --profile full logs -f {{args}}
+
+build-image:
+    docker build -t whisker -f docker/whisker/Dockerfile .
+
 test:
     go test ./...
 

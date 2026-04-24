@@ -1,0 +1,61 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    environment:
+      CLICKHOUSE_DB: whisker
+      CLICKHOUSE_USER: whisker
+      CLICKHOUSE_PASSWORD: whisker
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user whisker --password whisker --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  walrus:
+    image: ${WALRUS_IMAGE:-mysten/walrus-service:15e070d601890cc8aea18f27eee58435bbeed880}
+    platform: linux/amd64
+    volumes:
+      - ./walrus/client_config.yaml:/config/client_config.yaml:ro
+    command: >
+      /opt/walrus/bin/walrus
+        --config /config/client_config.yaml
+        aggregator
+        --bind-address 0.0.0.0:31415
+    ports:
+      - "31415:31415"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:31415/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  whisker:
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: docker/whisker/Dockerfile
+    environment:
+      WHISKER_PUBLISHER_URL: ${WHISKER_PUBLISHER_URL:-https://publisher.walrus-testnet.walrus.space}
+      WHISKER_AGGREGATOR_URL: http://walrus:31415
+      WHISKER_SUI_RPC_URL: https://fullnode.testnet.sui.io:443
+      WHISKER_WALRUS_PACKAGE_ID: 0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66
+      WHISKER_CHECK_INTERVAL: ${WHISKER_CHECK_INTERVAL:-5m}
+      WHISKER_PROBE_SIZE: ${WHISKER_PROBE_SIZE:-1048576}
+      WHISKER_EVENT_TIMEOUT: ${WHISKER_EVENT_TIMEOUT:-10m}
+      WHISKER_POLL_INTERVAL: ${WHISKER_POLL_INTERVAL:-5s}
+      WHISKER_LOG_LEVEL: ${WHISKER_LOG_LEVEL:-info}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      walrus:
+        condition: service_healthy
+
+volumes:
+  clickhouse-data:
