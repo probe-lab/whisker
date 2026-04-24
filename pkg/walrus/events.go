@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/probe-lab/whisker/sui"
+	"github.com/probe-lab/whisker/pkg/sui"
 )
 
 // Walrus event type names as they appear at the end of the fully-qualified

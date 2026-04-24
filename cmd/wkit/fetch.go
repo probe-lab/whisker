@@ -10,7 +10,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/probe-lab/whisker/walrus"
+	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
 func fetchCommand() *cli.Command {

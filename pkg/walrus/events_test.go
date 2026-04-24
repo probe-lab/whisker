@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/probe-lab/whisker/sui"
+	"github.com/probe-lab/whisker/pkg/sui"
 )
 
 func TestParseEvent(t *testing.T) {

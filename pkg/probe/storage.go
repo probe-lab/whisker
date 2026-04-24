@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/probe-lab/whisker/sui"
-	"github.com/probe-lab/whisker/walrus"
+	"github.com/probe-lab/whisker/pkg/sui"
+	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
 // StorageCheckResult holds all timing and verification data from one end-to-end

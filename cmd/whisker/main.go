@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/urfave/cli/v3"
 
-	"github.com/probe-lab/whisker/probe"
-	"github.com/probe-lab/whisker/sui"
-	"github.com/probe-lab/whisker/wait"
-	"github.com/probe-lab/whisker/walrus"
+	"github.com/probe-lab/whisker/pkg/probe"
+	"github.com/probe-lab/whisker/pkg/sui"
+	"github.com/probe-lab/whisker/pkg/wait"
+	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
 func main() {

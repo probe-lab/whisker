@@ -10,7 +10,7 @@ import (
 	sdktx "github.com/block-vision/sui-go-sdk/transaction"
 	"github.com/urfave/cli/v3"
 
-	"github.com/probe-lab/whisker/sui"
+	"github.com/probe-lab/whisker/pkg/sui"
 )
 
 const (
