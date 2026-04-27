@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -189,6 +190,44 @@ func (c *Client) GetObject(ctx context.Context, objectID string, opts ObjectData
 		return nil, fmt.Errorf("object %s not found", objectID)
 	}
 	return result.Data, nil
+}
+
+// WalrusSystemInfo holds the package IDs discovered from a Walrus system object.
+type WalrusSystemInfo struct {
+	PackageID   string // original stable package ID; use for event type filtering
+	TxPackageID string // current upgraded package ID; use for transaction execution
+}
+
+// FetchWalrusSystemInfo retrieves a Walrus system object and extracts both package IDs.
+// The original package ID is parsed from the object type; the current upgraded package ID
+// is read from the package_id field inside the object content.
+func (c *Client) FetchWalrusSystemInfo(ctx context.Context, systemObjectID string) (*WalrusSystemInfo, error) {
+	obj, err := c.GetObject(ctx, systemObjectID, ObjectDataOptions{ShowType: true, ShowContent: true})
+	if err != nil {
+		return nil, fmt.Errorf("fetch system object: %w", err)
+	}
+
+	packageID, _, ok := strings.Cut(obj.Type, "::")
+	if !ok {
+		return nil, fmt.Errorf("unexpected system object type: %q", obj.Type)
+	}
+
+	var content struct {
+		Fields struct {
+			PackageID string `json:"package_id"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(obj.Content, &content); err != nil {
+		return nil, fmt.Errorf("parse system object content: %w", err)
+	}
+	if content.Fields.PackageID == "" {
+		return nil, fmt.Errorf("package_id field missing from system object %s", systemObjectID)
+	}
+
+	return &WalrusSystemInfo{
+		PackageID:   packageID,
+		TxPackageID: content.Fields.PackageID,
+	}, nil
 }
 
 // --- internal JSON-RPC plumbing ---

@@ -15,9 +15,7 @@ import (
 
 const (
 	walrusTestnetSystemObject = "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af"
-	walrusTestnetPackageID    = "0x849e95d2718938d66c37fb91df76d72f78526c1864c339bac415ce8ecda2d8cc"
 	walrusMainnetSystemObject = "0x2134d52768ea07e8c43570ef975eb3e4c27a39fa6396bef985b5abc58d03ddd2"
-	walrusMainnetPackageID    = "0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77"
 )
 
 func deleteCommand() *cli.Command {
@@ -38,13 +36,8 @@ func deleteCommand() *cli.Command {
 				Sources: cli.EnvVars("WKIT_DELETE_SYSTEM_OBJECT"),
 			},
 			&cli.StringFlag{
-				Name:    "package",
-				Usage:   "Walrus package ID",
-				Sources: cli.EnvVars("WKIT_DELETE_PACKAGE_ID"),
-			},
-			&cli.StringFlag{
 				Name:    "network",
-				Usage:   "network preset: testnet or mainnet (sets --system and --package defaults)",
+				Usage:   "network preset: testnet or mainnet (sets --system default)",
 				Value:   "testnet",
 				Sources: cli.EnvVars("WKIT_DELETE_NETWORK"),
 			},
@@ -74,26 +67,21 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 	}
 	slog.Debug("loaded signer", "address", signer.Address)
 
-	exec, err := sui.NewTransactionExecutor(cmd.String("rpc-url"), signer)
+	rpcURL := cmd.String("rpc-url")
+	exec, err := sui.NewTransactionExecutor(rpcURL, signer)
 	if err != nil {
 		return fmt.Errorf("create executor: %w", err)
 	}
 
-	systemObjectID, explicitPackageID := resolveNetworkDefaults(cmd)
+	systemObjectID := resolveSystemObject(cmd)
 
-	// Derive the live package ID from the system object type unless overridden.
-	packageID := explicitPackageID
-	if cmd.String("package") == "" {
-		derived, err := packageIDFromSystemObject(ctx, exec, systemObjectID)
-		if err != nil {
-			slog.Warn("could not derive package ID from system object, using preset", "err", err, "package", packageID)
-		} else {
-			slog.Debug("derived package ID from system object", "package", derived)
-			packageID = derived
-		}
+	sysInfo, err := sui.NewClient(rpcURL).FetchWalrusSystemInfo(ctx, systemObjectID)
+	if err != nil {
+		return fmt.Errorf("discover walrus package ID: %w", err)
 	}
+	slog.Debug("discovered package ID", "tx_package_id", sysInfo.TxPackageID)
 
-	slog.Info("deleting blob", "object_id", blobObjectID, "package", packageID)
+	slog.Info("deleting blob", "object_id", blobObjectID, "package", sysInfo.TxPackageID)
 
 	systemArg, err := exec.ResolveObject(ctx, systemObjectID, false)
 	if err != nil {
@@ -112,7 +100,7 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 
 	// delete_blob(system: &System, blob: Blob) returns Storage
 	storage := tx.MoveCall(
-		sdkmodels.SuiAddress(packageID),
+		sdkmodels.SuiAddress(sysInfo.TxPackageID),
 		"system",
 		"delete_blob",
 		nil,
@@ -135,43 +123,12 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// packageIDFromSystemObject reads the current Walrus package ID from the system
-// object's content. The system object stores a `package_id` field that is updated
-// on each upgrade, giving us the live package ID without following the upgrade chain.
-func packageIDFromSystemObject(ctx context.Context, exec *sui.TransactionExecutor, systemObjectID string) (string, error) {
-	resp, err := exec.ObjectContent(ctx, systemObjectID)
-	if err != nil {
-		return "", err
-	}
-	pkg, ok := resp["package_id"]
-	if !ok {
-		return "", fmt.Errorf("system object has no package_id field")
-	}
-	pkgID, ok := pkg.(string)
-	if !ok || pkgID == "" {
-		return "", fmt.Errorf("system object package_id is not a string: %v", pkg)
-	}
-	return pkgID, nil
-}
-
-func resolveNetworkDefaults(cmd *cli.Command) (systemObjectID, packageID string) {
-	network := cmd.String("network")
-
-	switch network {
-	case "mainnet":
-		systemObjectID = walrusMainnetSystemObject
-		packageID = walrusMainnetPackageID
-	default:
-		systemObjectID = walrusTestnetSystemObject
-		packageID = walrusTestnetPackageID
-	}
-
-	// explicit flags override network presets
+func resolveSystemObject(cmd *cli.Command) string {
 	if v := cmd.String("system"); v != "" {
-		systemObjectID = v
+		return v
 	}
-	if v := cmd.String("package"); v != "" {
-		packageID = v
+	if cmd.String("network") == "mainnet" {
+		return walrusMainnetSystemObject
 	}
-	return systemObjectID, packageID
+	return walrusTestnetSystemObject
 }

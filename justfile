@@ -1,9 +1,7 @@
 set dotenv-load
 
-sui_rpc_url        := "https://fullnode.testnet.sui.io:443"
-walrus_package_id  := "0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66"
-walrus_tx_package_id := "0x849e95d2718938d66c37fb91df76d72f78526c1864c339bac415ce8ecda2d8cc"
-walrus_aggregator  := "https://aggregator.walrus-testnet.walrus.space"
+sui_rpc_url       := "https://fullnode.testnet.sui.io:443"
+walrus_aggregator := "https://aggregator.walrus-testnet.walrus.space"
 walrus_publisher   := "https://publisher.walrus-testnet.walrus.space"
 walrus_bin         := env("WALRUS_BIN", "walrus")
 sui_bin            := env("SUI_BIN", "sui")
@@ -25,39 +23,22 @@ env-up-full:
 env-down:
     {{compose}} --profile full down
 
-# follow logs; optionally pass a service name to filter
+# follow container logs; optionally pass a service name to filter
 env-logs *args='':
     {{compose}} --profile full logs -f {{args}}
 
 
-run: build
-    ./dist/whisker \
-        --publisher {{walrus_publisher}} \
-        --aggregator {{walrus_aggregator}} \
-        --rpc-url {{sui_rpc_url}} \
-        --package {{walrus_package_id}} \
-        --tx-package {{walrus_tx_package_id}} \
-        --interval 5m \
-        --probe-size 1048576 \
-        --event-timeout 10m \
-        --poll-interval 5s \
-        --log-level debug
-
 # run whisker locally against the local Walrus daemon (env-up must be running)
-run-local: build
+run: build
     ./dist/whisker \
         --publisher http://localhost:31415 \
         --aggregator http://localhost:31415 \
         --rpc-url {{sui_rpc_url}} \
-        --package {{walrus_package_id}} \
-        --tx-package {{walrus_tx_package_id}} \
-        --interval 5m \
+        --interval 15m \
         --probe-size 1048576 \
         --event-timeout 10m \
         --poll-interval 5s \
         --log-level debug
-
-
 
 build-image:
     docker build -t whisker -f docker/whisker/Dockerfile .
@@ -76,7 +57,7 @@ build-wkit:
     go build -o dist/wkit ./cmd/wkit
 
 watch: build-wkit
-    ./dist/wkit watch --rpc-url {{sui_rpc_url}} --package {{walrus_tx_package_id}} --human
+    ./dist/wkit watch --rpc-url {{sui_rpc_url}} --human
 
 fetch blob_id: build-wkit
     ./dist/wkit fetch --aggregator {{walrus_aggregator}} --out {{blob_id}} {{blob_id}}

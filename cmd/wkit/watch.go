@@ -30,10 +30,10 @@ func watchCommand() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:     "package",
-				Usage:    "current Walrus package ID on Sui (upgraded address, used for event filtering)",
-				Sources:  cli.EnvVars("WKIT_WATCH_PACKAGE_ID"),
-				Required: true,
+				Name:    "system-object",
+				Usage:   "Walrus system object ID on Sui; package IDs are derived from it",
+				Value:   walrusTestnetSystemObject,
+				Sources: cli.EnvVars("WKIT_WATCH_SYSTEM_OBJECT"),
 			},
 			&cli.DurationFlag{
 				Name:    "poll-interval",
@@ -58,7 +58,13 @@ func watchCommand() *cli.Command {
 
 func runWatch(ctx context.Context, cmd *cli.Command) error {
 	client := sui.NewClient(cmd.String("rpc-url"))
-	filter := sui.MoveEventModuleFilter(cmd.String("package"), "system")
+
+	sysInfo, err := client.FetchWalrusSystemInfo(ctx, cmd.String("system-object"))
+	if err != nil {
+		return fmt.Errorf("discover walrus package IDs: %w", err)
+	}
+
+	filter := sui.MoveEventModuleFilter(sysInfo.TxPackageID, "system")
 	pollInterval := cmd.Duration("poll-interval")
 	human := cmd.Bool("human")
 
@@ -83,9 +89,13 @@ func runWatch(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	enc := json.NewEncoder(os.Stdout)
-	slog.Info("watching walrus events", "rpc", cmd.String("rpc-url"), "package", cmd.String("package"))
+	slog.Info("watching walrus events",
+		"rpc", cmd.String("rpc-url"),
+		"package_id", sysInfo.PackageID,
+		"tx_package_id", sysInfo.TxPackageID,
+	)
 
-	err := client.WatchEvents(ctx, filter, cursor, pollInterval, func(ev sui.Event) error {
+	err = client.WatchEvents(ctx, filter, cursor, pollInterval, func(ev sui.Event) error {
 		envelope, err := walrus.ParseEvent(ev)
 		if err != nil {
 			slog.Warn("skipping unrecognised event", "type", ev.Type, "err", err)

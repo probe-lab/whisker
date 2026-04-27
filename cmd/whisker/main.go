@@ -49,18 +49,6 @@ func main() {
 				Value:   testnetRPCURL,
 				Sources: cli.EnvVars("WHISKER_SUI_RPC_URL"),
 			},
-			&cli.StringFlag{
-				Name:    "package",
-				Usage:   "Walrus package ID for event filtering (stable original address)",
-				Value:   defaultPackageID,
-				Sources: cli.EnvVars("WHISKER_WALRUS_PACKAGE_ID"),
-			},
-			&cli.StringFlag{
-				Name:    "tx-package",
-				Usage:   "Walrus package ID for transaction execution (current upgraded address)",
-				Value:   defaultTxPackageID,
-				Sources: cli.EnvVars("WHISKER_WALRUS_TX_PACKAGE_ID"),
-			},
 			&cli.DurationFlag{
 				Name:    "interval",
 				Usage:   "how often to run a storage check",
@@ -111,7 +99,7 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:    "dry-run",
-				Usage:   "log results only; do not write to any persistent backend",
+				Usage:   "run probes normally but do not write metrics to any persistent store (ClickHouse etc.)",
 				Sources: cli.EnvVars("WHISKER_DRY_RUN"),
 			},
 			&cli.StringFlag{
@@ -154,13 +142,8 @@ const (
 	testnetPublisher  = "https://publisher.walrus-testnet.walrus.space"
 	testnetAggregator = "https://aggregator.walrus-testnet.walrus.space"
 	testnetRPCURL     = "https://fullnode.testnet.sui.io:443"
-	// defaultPackageID is the original (stable) Walrus package address used for event filtering.
-	// Sui indexes events from all upgraded versions under this address.
-	defaultPackageID = "0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66"
-
-	// defaultTxPackageID is the currently deployed Walrus package address used for transaction
-	// execution. This must match the active on-chain version and needs updating after upgrades.
-	defaultTxPackageID    = "0x849e95d2718938d66c37fb91df76d72f78526c1864c339bac415ce8ecda2d8cc"
+	// defaultSystemObjectID is the Walrus system object on Sui testnet.
+	// Both package IDs are derived from this object at startup.
 	defaultSystemObjectID = "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af"
 )
 
@@ -170,16 +153,25 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("generate run ID: %w", err)
 	}
 
+	suiClient := sui.NewClient(cmd.String("rpc-url"))
+
+	sysInfo, err := suiClient.FetchWalrusSystemInfo(ctx, cmd.String("walrus-system-object"))
+	if err != nil {
+		return fmt.Errorf("discover walrus package IDs: %w", err)
+	}
+	slog.Debug("discovered walrus package IDs",
+		"package_id", sysInfo.PackageID,
+		"tx_package_id", sysInfo.TxPackageID,
+	)
+
 	checker := &probe.StorageChecker{
 		RunID:        runID.String(),
 		Publisher:    walrus.NewPublisherClient(cmd.String("publisher")),
 		Aggregator:   walrus.NewAggregatorClient(cmd.String("aggregator")),
-		Sui:          sui.NewClient(cmd.String("rpc-url")),
-		PackageID:    cmd.String("package"),
-		TxPackageID:  cmd.String("tx-package"),
+		Sui:          suiClient,
+		TxPackageID:  sysInfo.TxPackageID,
 		PollInterval: cmd.Duration("poll-interval"),
 		EventTimeout: cmd.Duration("event-timeout"),
-		DryRun:       cmd.Bool("dry-run"),
 		UploadOpts: walrus.UploadOptions{
 			Epochs:    uint32(cmd.Uint("probe-epochs")),
 			Deletable: true,
