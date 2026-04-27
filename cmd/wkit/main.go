@@ -22,7 +22,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "private-key",
 				Usage:   "Sui private key: suiprivkey bech32 or BIP-39 mnemonic",
-				Sources: cli.EnvVars("WKIT_PRIVATE_KEY"),
+				Sources: cli.EnvVars("WHISKER_SUI_SIGNER"),
 			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

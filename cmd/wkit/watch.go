@@ -31,7 +31,7 @@ func watchCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     "package",
-				Usage:    "Walrus package ID on Sui",
+				Usage:    "current Walrus package ID on Sui (upgraded address, used for event filtering)",
 				Sources:  cli.EnvVars("WKIT_WATCH_PACKAGE_ID"),
 				Required: true,
 			},
@@ -58,7 +58,7 @@ func watchCommand() *cli.Command {
 
 func runWatch(ctx context.Context, cmd *cli.Command) error {
 	client := sui.NewClient(cmd.String("rpc-url"))
-	filter := sui.MoveEventModuleFilter(cmd.String("package"), "events")
+	filter := sui.MoveEventModuleFilter(cmd.String("package"), "system")
 	pollInterval := cmd.Duration("poll-interval")
 	human := cmd.Bool("human")
 

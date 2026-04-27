@@ -13,9 +13,6 @@ import (
 	sdktx "github.com/block-vision/sui-go-sdk/transaction"
 )
 
-// storageResourceTypeSuffix is the Move type suffix for Walrus Storage objects.
-const storageResourceTypeSuffix = "::storage_resource::Storage"
-
 const (
 	suiCoinType      = "0x2::sui::SUI"
 	defaultGasBudget = uint64(50_000_000) // 0.05 SUI
@@ -229,11 +226,11 @@ func (e *TransactionExecutor) DeleteBlob(ctx context.Context, packageID, systemO
 		return "", resp.Digest, fmt.Errorf("transaction failed: %s", resp.Effects.Status.Error)
 	}
 
-	for _, change := range resp.ObjectChanges {
-		if strings.HasSuffix(change.ObjectType, storageResourceTypeSuffix) {
-			storageObjectID = change.ObjectId
-			break
-		}
+	// The Storage resource is unwrapped from the Blob on deletion; it appears
+	// in effects.Unwrapped, not in objectChanges.
+	for _, ref := range resp.Effects.Unwrapped {
+		storageObjectID = ref.Reference.ObjectId
+		break
 	}
 
 	slog.Debug("blob deleted", "digest", resp.Digest, "storage_object_id", storageObjectID)

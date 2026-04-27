@@ -1,3 +1,5 @@
+name: whisker
+
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:25.3
@@ -22,11 +24,11 @@ services:
     platform: linux/amd64
     volumes:
       - ./walrus/client_config.yaml:/config/client_config.yaml:ro
-    command: >
-      /opt/walrus/bin/walrus
-        --config /config/client_config.yaml
-        aggregator
-        --bind-address 0.0.0.0:31415
+      - ./walrus/sui_client.yaml:/root/.sui/sui_config/client.yaml:ro
+      - ${WALRUS_WALLET_DIR:?Set WALRUS_WALLET_DIR in .env}/sui.keystore:/root/.sui/sui_config/sui.keystore:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "mkdir -p /root/.sui/sui_config/sub-wallets && exec /opt/walrus/bin/walrus --config /config/client_config.yaml daemon --bind-address 0.0.0.0:31415 --sub-wallets-dir /root/.sui/sui_config/sub-wallets --n-clients 1 --sub-wallets-min-balance 100000000 --gas-refill-amount 50000000 --wal-refill-amount 200000000"
     ports:
       - "31415:31415"
     healthcheck:
@@ -42,15 +44,17 @@ services:
       context: ..
       dockerfile: docker/whisker/Dockerfile
     environment:
-      WHISKER_PUBLISHER_URL: ${WHISKER_PUBLISHER_URL:-https://publisher.walrus-testnet.walrus.space}
+      WHISKER_PUBLISHER_URL: http://walrus:31415
       WHISKER_AGGREGATOR_URL: http://walrus:31415
       WHISKER_SUI_RPC_URL: https://fullnode.testnet.sui.io:443
       WHISKER_WALRUS_PACKAGE_ID: 0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66
+      WHISKER_WALRUS_TX_PACKAGE_ID: 0x849e95d2718938d66c37fb91df76d72f78526c1864c339bac415ce8ecda2d8cc
       WHISKER_CHECK_INTERVAL: ${WHISKER_CHECK_INTERVAL:-5m}
       WHISKER_PROBE_SIZE: ${WHISKER_PROBE_SIZE:-1048576}
       WHISKER_EVENT_TIMEOUT: ${WHISKER_EVENT_TIMEOUT:-10m}
       WHISKER_POLL_INTERVAL: ${WHISKER_POLL_INTERVAL:-5s}
       WHISKER_LOG_LEVEL: ${WHISKER_LOG_LEVEL:-info}
+      WHISKER_SUI_SIGNER: ${WHISKER_SUI_SIGNER:-}
     depends_on:
       clickhouse:
         condition: service_healthy

@@ -1,0 +1,12 @@
+---
+keystore:
+  File: /root/.sui/sui_config/sui.keystore
+external_keys: ~
+envs:
+  - alias: testnet
+    rpc: "https://fullnode.testnet.sui.io:443"
+    ws: ~
+    basic_auth: ~
+    chain_id: 4c78adac
+active_env: testnet
+active_address: ~

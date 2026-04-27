@@ -51,9 +51,15 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:    "package",
-				Usage:   "Walrus package ID on Sui",
+				Usage:   "Walrus package ID for event filtering (stable original address)",
 				Value:   defaultPackageID,
 				Sources: cli.EnvVars("WHISKER_WALRUS_PACKAGE_ID"),
+			},
+			&cli.StringFlag{
+				Name:    "tx-package",
+				Usage:   "Walrus package ID for transaction execution (current upgraded address)",
+				Value:   defaultTxPackageID,
+				Sources: cli.EnvVars("WHISKER_WALRUS_TX_PACKAGE_ID"),
 			},
 			&cli.DurationFlag{
 				Name:    "interval",
@@ -113,6 +119,17 @@ func main() {
 				Usage:   "directory to write newline-delimited JSON result files; one file per run",
 				Sources: cli.EnvVars("WHISKER_JSON_OUT"),
 			},
+			&cli.StringFlag{
+				Name:    "signer",
+				Usage:   "Sui private key (suiprivkey-prefixed bech32) or BIP-39 mnemonic; enables blob deletion and storage recycling after each probe",
+				Sources: cli.EnvVars("WHISKER_SUI_SIGNER"),
+			},
+			&cli.StringFlag{
+				Name:    "walrus-system-object",
+				Usage:   "Walrus system object ID on Sui",
+				Value:   defaultSystemObjectID,
+				Sources: cli.EnvVars("WHISKER_WALRUS_SYSTEM_OBJECT_ID"),
+			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			level := slog.LevelInfo
@@ -137,7 +154,14 @@ const (
 	testnetPublisher  = "https://publisher.walrus-testnet.walrus.space"
 	testnetAggregator = "https://aggregator.walrus-testnet.walrus.space"
 	testnetRPCURL     = "https://fullnode.testnet.sui.io:443"
-	defaultPackageID  = "0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66"
+	// defaultPackageID is the original (stable) Walrus package address used for event filtering.
+	// Sui indexes events from all upgraded versions under this address.
+	defaultPackageID = "0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66"
+
+	// defaultTxPackageID is the currently deployed Walrus package address used for transaction
+	// execution. This must match the active on-chain version and needs updating after upgrades.
+	defaultTxPackageID    = "0x849e95d2718938d66c37fb91df76d72f78526c1864c339bac415ce8ecda2d8cc"
+	defaultSystemObjectID = "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af"
 )
 
 func run(ctx context.Context, cmd *cli.Command) error {
@@ -152,12 +176,27 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		Aggregator:   walrus.NewAggregatorClient(cmd.String("aggregator")),
 		Sui:          sui.NewClient(cmd.String("rpc-url")),
 		PackageID:    cmd.String("package"),
+		TxPackageID:  cmd.String("tx-package"),
 		PollInterval: cmd.Duration("poll-interval"),
 		EventTimeout: cmd.Duration("event-timeout"),
+		DryRun:       cmd.Bool("dry-run"),
 		UploadOpts: walrus.UploadOptions{
 			Epochs:    uint32(cmd.Uint("probe-epochs")),
 			Deletable: true,
 		},
+	}
+
+	if secret := cmd.String("signer"); secret != "" {
+		signer, err := sui.LoadSigner(secret)
+		if err != nil {
+			return fmt.Errorf("load signer: %w", err)
+		}
+		executor, err := sui.NewTransactionExecutor(cmd.String("rpc-url"), signer)
+		if err != nil {
+			return fmt.Errorf("create transaction executor: %w", err)
+		}
+		checker.Executor = executor
+		checker.SystemObjectID = cmd.String("walrus-system-object")
 	}
 
 	dir := cmd.String("tmp-dir")

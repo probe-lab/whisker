@@ -47,10 +47,11 @@ func MoveEventTypeFilter(moveEventType string) EventFilter {
 }
 
 // MoveEventModuleFilter returns a filter that matches all events emitted by
-// the given module within a package, e.g. package "0xabc", module "events".
+// the given module within a package. Use the current (upgraded) package ID,
+// not the original stable address, as Sui matches the emitting package exactly.
 func MoveEventModuleFilter(packageID, module string) EventFilter {
 	return EventFilter{
-		"MoveEventModule": map[string]string{
+		"MoveModule": map[string]string{
 			"package": packageID,
 			"module":  module,
 		},

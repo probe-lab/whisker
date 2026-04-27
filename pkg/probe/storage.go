@@ -44,7 +44,8 @@ type StorageChecker struct {
 	Publisher    *walrus.PublisherClient
 	Aggregator   *walrus.AggregatorClient
 	Sui          *sui.Client
-	PackageID    string        // Walrus package ID used to filter Sui events
+	PackageID    string        // original Walrus package ID; stable across upgrades, used for event filtering
+	TxPackageID  string        // current Walrus package ID for transaction execution; must match the active on-chain version
 	PollInterval time.Duration // how often to poll for new events
 	EventTimeout time.Duration // how long to wait for BlobCertified before giving up
 	UploadOpts   walrus.UploadOptions
@@ -70,7 +71,7 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 	}
 	originalHash := tf.SHA256
 
-	filter := sui.MoveEventModuleFilter(c.PackageID, "events")
+	filter := sui.MoveEventModuleFilter(c.TxPackageID, "system")
 	cursor, err := c.Sui.LatestEventCursor(ctx, filter)
 	if err != nil {
 		tf.Close()
@@ -149,8 +150,10 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 	result.ContentHashMatch = bytes.Equal(h.Sum(nil), originalHash[:])
 
 	// Recycle the storage resource after a complete successful cycle.
-	if !c.DryRun && c.Executor != nil && result.SuiObjectID != "" {
-		storageID, _, recycleErr := c.Executor.DeleteBlob(ctx, c.PackageID, c.SystemObjectID, result.SuiObjectID, 0)
+	if c.DryRun {
+		slog.Debug("dry-run: skipping blob deletion", "blob_object_id", result.SuiObjectID)
+	} else if c.Executor != nil && result.SuiObjectID != "" {
+		storageID, _, recycleErr := c.Executor.DeleteBlob(ctx, c.TxPackageID, c.SystemObjectID, result.SuiObjectID, 0)
 		if recycleErr != nil {
 			slog.Warn("storage recycle failed, will purchase new storage next cycle",
 				"err", recycleErr,

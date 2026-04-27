@@ -15,7 +15,7 @@ import (
 
 const (
 	walrusTestnetSystemObject = "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af"
-	walrusTestnetPackageID    = "0xd84704c17fc870b8764832c535aa6b11f21a95cd6f5bb38a9b07d2cf42220c66"
+	walrusTestnetPackageID    = "0x849e95d2718938d66c37fb91df76d72f78526c1864c339bac415ce8ecda2d8cc"
 	walrusMainnetSystemObject = "0x2134d52768ea07e8c43570ef975eb3e4c27a39fa6396bef985b5abc58d03ddd2"
 	walrusMainnetPackageID    = "0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77"
 )
@@ -66,7 +66,7 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 
 	privateKey := cmd.Root().String("private-key")
 	if privateKey == "" {
-		return fmt.Errorf("--private-key or WKIT_PRIVATE_KEY is required")
+		return fmt.Errorf("--private-key or WHISKER_SUI_SIGNER is required")
 	}
 	signer, err := sui.LoadSigner(privateKey)
 	if err != nil {
