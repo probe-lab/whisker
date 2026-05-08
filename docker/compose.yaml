@@ -53,6 +53,9 @@ services:
       WHISKER_POLL_INTERVAL: ${WHISKER_POLL_INTERVAL:-5s}
       WHISKER_LOG_LEVEL: ${WHISKER_LOG_LEVEL:-info}
       WHISKER_SUI_SIGNER: ${WHISKER_SUI_SIGNER:-}
+      WHISKER_NETWORK: ${WHISKER_NETWORK:-testnet}
+      WHISKER_PROBE_LOCATION: ${WHISKER_PROBE_LOCATION:?Set WHISKER_PROBE_LOCATION in .env}
+      WHISKER_CLICKHOUSE_URL: clickhouse://whisker:whisker@clickhouse:9000/whisker
     depends_on:
       clickhouse:
         condition: service_healthy

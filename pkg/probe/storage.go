@@ -14,10 +14,22 @@ import (
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
+// Probe status values recorded in StorageCheckResult.Status.
+const (
+	StatusUploadPending    = "upload_pending"
+	StatusUploaded         = "uploaded"
+	StatusRegistered       = "registered"
+	StatusCertified        = "certified"
+	StatusRetrievalPending = "retrieval_pending"
+	StatusRetrieved        = "retrieved"
+	StatusValidated        = "validated"
+)
+
 // StorageCheckResult holds all timing and verification data from one end-to-end
 // upload-certify-download cycle.
 type StorageCheckResult struct {
 	RunID       string // UUID v7 generated at the start of each check
+	Status      string // last phase reached; see Status* constants
 	FileSize    int64
 	BlobID      string // base64url blob ID
 	SuiObjectID string // Sui object ID of the uploaded blob; empty if blob was already certified
@@ -60,7 +72,7 @@ type StorageChecker struct {
 // uploads it, waits for BlobRegistered and BlobCertified events on Sui, downloads
 // the blob, then verifies length and SHA256 hash.
 func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*StorageCheckResult, error) {
-	result := &StorageCheckResult{RunID: c.RunID, FileSize: size}
+	result := &StorageCheckResult{RunID: c.RunID, FileSize: size, Status: StatusUploadPending}
 
 	tf, err := NewTempFile(dir, size)
 	if err != nil {
@@ -89,6 +101,7 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 		return nil, fmt.Errorf("upload: %w", err)
 	}
 	result.UploadFinished = time.Now()
+	result.Status = StatusUploaded
 	result.BlobID = uploadResult.BlobID()
 	if uploadResult.NewlyCreated != nil {
 		result.SuiObjectID = uploadResult.NewlyCreated.SuiObjectID
@@ -109,11 +122,13 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 		case *walrus.BlobRegistered:
 			if blobIDMatches(e.BlobID, result.BlobID) {
 				result.BlobRegisteredAt = evTime
+				result.Status = StatusRegistered
 				registered = true
 			}
 		case *walrus.BlobCertified:
 			if blobIDMatches(e.BlobID, result.BlobID) {
 				result.BlobCertifiedAt = evTime
+				result.Status = StatusCertified
 				certified = true
 			}
 		}
@@ -134,6 +149,7 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 
 	// Download into a hash writer to verify content integrity.
 	h := sha256.New()
+	result.Status = StatusRetrievalPending
 	result.DownloadStarted = time.Now()
 	fetchResult, err := c.Aggregator.FetchBlob(ctx, result.BlobID, h)
 	if err != nil {
@@ -143,8 +159,12 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 	result.DownloadFinished = result.DownloadStarted.Add(fetchResult.TTLB)
 	result.DownloadSize = fetchResult.Size
 
+	result.Status = StatusRetrieved
 	result.ContentLengthMatch = fetchResult.Size == size
 	result.ContentHashMatch = bytes.Equal(h.Sum(nil), originalHash[:])
+	if result.ContentLengthMatch && result.ContentHashMatch {
+		result.Status = StatusValidated
+	}
 
 	// Recycle the storage resource after a complete successful cycle.
 	if c.Executor != nil && result.SuiObjectID != "" {

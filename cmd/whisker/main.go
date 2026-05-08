@@ -7,14 +7,19 @@ import (
 	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
+	pldb "github.com/probe-lab/go-commons/db"
 	"github.com/urfave/cli/v3"
 
+	"github.com/probe-lab/whisker/pkg/db"
 	"github.com/probe-lab/whisker/pkg/probe"
 	"github.com/probe-lab/whisker/pkg/sui"
 	"github.com/probe-lab/whisker/pkg/wait"
@@ -119,6 +124,22 @@ func main() {
 				Value:   defaultSystemObjectID,
 				Sources: cli.EnvVars("WHISKER_WALRUS_SYSTEM_OBJECT_ID"),
 			},
+			&cli.StringFlag{
+				Name:    "network",
+				Usage:   "network name written to probe results (mainnet or testnet)",
+				Value:   "testnet",
+				Sources: cli.EnvVars("WHISKER_NETWORK"),
+			},
+			&cli.StringFlag{
+				Name:    "probe-location",
+				Usage:   "location identifier written to probe results",
+				Sources: cli.EnvVars("WHISKER_PROBE_LOCATION"),
+			},
+			&cli.StringFlag{
+				Name:    "clickhouse-url",
+				Usage:   "ClickHouse connection URL (clickhouse://user:pass@host:port/db)",
+				Sources: cli.EnvVars("WHISKER_CLICKHOUSE_URL"),
+			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			level := slog.LevelInfo
@@ -206,7 +227,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		"aggregator", cmd.String("aggregator"),
 	)
 
-	writer, err := chooseWriter(cmd, runID.String())
+	writer, err := chooseWriter(ctx, cmd, runID.String())
 	if err != nil {
 		return err
 	}
@@ -233,13 +254,55 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	return loopErr
 }
 
-func chooseWriter(cmd *cli.Command, runID string) (probe.ResultWriter, error) {
+func chooseWriter(ctx context.Context, cmd *cli.Command, runID string) (probe.ResultWriter, error) {
 	if cmd.Bool("dry-run") {
 		return &probe.LogWriter{}, nil
 	}
 	if dir := cmd.String("json-out"); dir != "" {
 		return probe.NewJSONFileWriter(dir, runID)
 	}
-	// Default: log results. Replaced by ClickHouse writer once pw-0ktl lands.
+	if rawURL := cmd.String("clickhouse-url"); rawURL != "" {
+		chCfg, err := parseClickHouseURL(rawURL)
+		if err != nil {
+			return nil, fmt.Errorf("parse clickhouse URL: %w", err)
+		}
+		client, err := db.NewClickhouseClient(ctx, chCfg, pldb.DefaultClickHouseMigrationsConfig())
+		if err != nil {
+			return nil, fmt.Errorf("create clickhouse client: %w", err)
+		}
+		client.Network = cmd.String("network")
+		client.ProbeLocation = cmd.String("probe-location")
+		client.PublisherURL = cmd.String("publisher")
+		client.AggregatorURL = cmd.String("aggregator")
+		return client, nil
+	}
 	return &probe.LogWriter{}, nil
+}
+
+func parseClickHouseURL(rawURL string) (*pldb.ClickHouseConfig, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	port := 9000
+	if p := u.Port(); p != "" {
+		if port, err = strconv.Atoi(p); err != nil {
+			return nil, fmt.Errorf("invalid port %q: %w", p, err)
+		}
+	}
+
+	pass, _ := u.User.Password()
+	ssl := u.Scheme == "clickhouses" || u.Query().Get("ssl") == "true" || u.Query().Get("secure") == "true"
+
+	return &pldb.ClickHouseConfig{
+		BaseConfig: &pldb.ClickHouseBaseConfig{
+			Host: u.Hostname(),
+			Port: port,
+			User: u.User.Username(),
+			Pass: pass,
+			SSL:  ssl,
+		},
+		Database: strings.TrimPrefix(u.Path, "/"),
+	}, nil
 }

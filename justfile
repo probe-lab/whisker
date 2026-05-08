@@ -19,9 +19,9 @@ env-up:
 env-up-full:
     {{compose}} --profile full up -d --build
 
-# stop all environment services and remove containers
+# stop all environment services, remove containers and volumes
 env-down:
-    {{compose}} --profile full down
+    {{compose}} --profile full down -v
 
 # follow container logs; optionally pass a service name to filter
 env-logs *args='':
@@ -38,7 +38,16 @@ run: build
         --probe-size 102400,1048576,10485760 \
         --event-timeout 10m \
         --poll-interval 5s \
+        --network testnet \
+        --probe-location local \
+        --clickhouse-url clickhouse://whisker:whisker@localhost:9000/whisker \
         --log-level debug
+
+# dump the contents of storage_checks from the local ClickHouse
+view-clickhouse:
+    {{compose}} exec clickhouse clickhouse-client \
+        --user whisker --password whisker --database whisker \
+        --query "SELECT * FROM storage_checks FORMAT PrettyCompact"
 
 build-image:
     docker build -t whisker -f docker/whisker/Dockerfile .
