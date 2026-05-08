@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"os"
 	"os/signal"
 	"syscall"
@@ -67,10 +68,10 @@ func main() {
 				Value:   0.1,
 				Sources: cli.EnvVars("WHISKER_CHECK_JITTER"),
 			},
-			&cli.Int64Flag{
+			&cli.Int64SliceFlag{
 				Name:    "probe-size",
-				Usage:   "size in bytes of the file uploaded in each storage check",
-				Value:   1 * 1024 * 1024,
+				Usage:   "size in bytes of the file uploaded in each storage check, comma separated list",
+				Value:   []int64{100 * 1024, 1 * 1024 * 1024, 10 * 1024 * 1024},
 				Sources: cli.EnvVars("WHISKER_PROBE_SIZE"),
 			},
 			&cli.DurationFlag{
@@ -192,7 +193,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	dir := cmd.String("tmp-dir")
-	size := cmd.Int64("probe-size")
+	sizes := cmd.Int64Slice("probe-size")
 
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -200,7 +201,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	slog.Info("starting storage check loop",
 		"interval", cmd.Duration("interval"),
 		"delay", cmd.Duration("delay"),
-		"probe_size", size,
+		"probe_sizes", sizes,
 		"publisher", cmd.String("publisher"),
 		"aggregator", cmd.String("aggregator"),
 	)
@@ -214,6 +215,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	loopErr := wait.Forever(ctx, func(ctx context.Context) error {
+		size := sizes[rand.N(len(sizes))]
 		result, err := checker.Check(ctx, dir, size)
 		if err != nil {
 			slog.Error("storage check failed", "err", err)

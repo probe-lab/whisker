@@ -35,7 +35,7 @@ run: build
         --aggregator http://localhost:31415 \
         --rpc-url {{sui_rpc_url}} \
         --interval 15m \
-        --probe-size 1048576 \
+        --probe-size 102400,1048576,10485760 \
         --event-timeout 10m \
         --poll-interval 5s \
         --log-level debug
