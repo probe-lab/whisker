@@ -1,4 +1,4 @@
 dist/
-wkit
-whisker
+/wkit
+/whisker
 .env
