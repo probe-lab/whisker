@@ -1,0 +1,19 @@
+name: Pull Request
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Which ref should be checked out?"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test_lint:
+    name: Test & Lint
+    uses: ./.github/workflows/workflow_call_test_lint.yml
+    with:
+      ref: ${{ inputs.ref }}
+    permissions:
+      contents: read
