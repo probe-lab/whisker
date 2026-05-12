@@ -11,8 +11,8 @@ on:
 
 jobs:
   test:
-    name: Test & Lint
-    uses: ./.github/workflows/workflow_call_test_lint.yml
+    name: Test & Staticcheck
+    uses: ./.github/workflows/workflow_call_test.yml
     with:
       ref: ${{ inputs.ref }}
     permissions:

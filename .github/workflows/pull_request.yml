@@ -12,7 +12,7 @@ on:
 jobs:
   test_lint:
     name: Test & Lint
-    uses: ./.github/workflows/workflow_call_test_lint.yml
+    uses: ./.github/workflows/workflow_call_test.yml
     with:
       ref: ${{ inputs.ref }}
     permissions:
