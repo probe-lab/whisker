@@ -12,6 +12,7 @@ on:
         value: ${{ jobs.push_to_ecr.outputs.imageTag }}
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   AWS_REGION: us-east-1
   AWS_ROLE: arn:aws:iam::019120760881:role/prod-use1-github-oidc-role
   AWS_ECR_REPOSITORY: probelab
@@ -24,12 +25,12 @@ jobs:
       imageTag: ${{ steps.meta.outputs.image }}
     steps:
       - name: Checking out the Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
 
       - name: Configuring AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_ROLE }}

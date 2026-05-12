@@ -1,5 +1,8 @@
 name: 'Reusable: Test & Staticcheck'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_call:
     inputs:
@@ -13,12 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checking out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
 
       - name: Setting up Golang
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -30,12 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checking out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
 
       - name: Setting up Golang
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
