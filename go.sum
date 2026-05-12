@@ -133,6 +133,8 @@ github.com/probe-lab/ecs-exporter v0.0.0-20251009122906-1f6d80d91fa1 h1:bURq64M7
 github.com/probe-lab/ecs-exporter v0.0.0-20251009122906-1f6d80d91fa1/go.mod h1:/6nmlQ7eosCdPvxMgzsh7NWyLc7wsC0j+Wsg7PFq40E=
 github.com/probe-lab/go-commons v0.0.0-20260429113009-d7436297c6ed h1:DepsJ3QZppkFuskVVWuOtSNXypqPFUt1ogc2VEs6bOg=
 github.com/probe-lab/go-commons v0.0.0-20260429113009-d7436297c6ed/go.mod h1:DpDud9aYVaMwdf0ThSEsnTFfzXZU9wv7T+adCzv7aZc=
+github.com/probe-lab/go-commons v0.0.0-20260512080035-60bbbd9c3396 h1:Uss5foyx3icvgAhUZruU/pphukTsJb7rKbksmonEbSQ=
+github.com/probe-lab/go-commons v0.0.0-20260512080035-60bbbd9c3396/go.mod h1:DpDud9aYVaMwdf0ThSEsnTFfzXZU9wv7T+adCzv7aZc=
 github.com/prometheus/client_golang v1.23.2 h1:Je96obch5RDVy3FDMndoUsjAhG5Edi49h0RJWRi/o0o=
 github.com/prometheus/client_golang v1.23.2/go.mod h1:Tb1a6LWHB3/SPIzCoaDXI4I8UHKeFTEQ1YCr+0Gyqmg=
 github.com/prometheus/client_model v0.6.2 h1:oBsgwpGs7iVziMvrGhE53c/GrLUsZdHnqNwqPLxwZyk=

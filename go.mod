@@ -10,7 +10,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/probe-lab/go-commons v0.0.0-20260429113009-d7436297c6ed
+	github.com/probe-lab/go-commons v0.0.0-20260512080035-60bbbd9c3396
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/metric v1.43.0
 )
