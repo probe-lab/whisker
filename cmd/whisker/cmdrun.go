@@ -242,7 +242,9 @@ func chooseWriter(ctx context.Context, cmd *cli.Command, runID, publisher, aggre
 		if err != nil {
 			return nil, fmt.Errorf("parse clickhouse URL: %w", err)
 		}
-		client, err := db.NewClickhouseClient(ctx, chCfg, pldb.DefaultClickHouseMigrationsConfig())
+		migCfg := pldb.DefaultClickHouseMigrationsConfig()
+		migCfg.MigrationsTableEngine = "MergeTree"
+		client, err := db.NewClickhouseClient(ctx, chCfg, migCfg)
 		if err != nil {
 			return nil, fmt.Errorf("create clickhouse client: %w", err)
 		}
