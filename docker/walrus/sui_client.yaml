@@ -8,5 +8,9 @@ envs:
     ws: ~
     basic_auth: ~
     chain_id: 4c78adac
-active_env: testnet
+  - alias: mainnet
+    rpc: "https://fullnode.mainnet.sui.io:443"
+    ws: ~
+    basic_auth: ~
+active_env: mainnet
 active_address: ~

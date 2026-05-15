@@ -20,7 +20,7 @@ services:
       start_period: 30s
 
   walrus:
-    image: ${WALRUS_IMAGE:-mysten/walrus-service:15e070d601890cc8aea18f27eee58435bbeed880}
+    image: ${WALRUS_IMAGE:-mysten/walrus-service:mainnet-v1.48.1}
     platform: linux/amd64
     volumes:
       - ./walrus/client_config.yaml:/config/client_config.yaml:ro
@@ -46,14 +46,13 @@ services:
     environment:
       WHISKER_PUBLISHER_URL: http://walrus:31415
       WHISKER_AGGREGATOR_URL: http://walrus:31415
-      WHISKER_SUI_RPC_URL: https://fullnode.testnet.sui.io:443
       WHISKER_CHECK_INTERVAL: ${WHISKER_CHECK_INTERVAL:-5m}
       WHISKER_PROBE_SIZE: ${WHISKER_PROBE_SIZE:-1048576}
       WHISKER_EVENT_TIMEOUT: ${WHISKER_EVENT_TIMEOUT:-10m}
       WHISKER_POLL_INTERVAL: ${WHISKER_POLL_INTERVAL:-5s}
       WHISKER_LOG_LEVEL: ${WHISKER_LOG_LEVEL:-info}
       WHISKER_SUI_SIGNER: ${WHISKER_SUI_SIGNER:-}
-      WHISKER_NETWORK: ${WHISKER_NETWORK:-testnet}
+      WHISKER_NETWORK: ${WALRUS_NETWORK:-testnet}
       WHISKER_PROBE_LOCATION: ${WHISKER_PROBE_LOCATION:?Set WHISKER_PROBE_LOCATION in .env}
       WHISKER_CLICKHOUSE_URL: clickhouse://whisker:whisker@clickhouse:9000/whisker
     depends_on:

@@ -9,6 +9,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/probe-lab/whisker/pkg/network"
 	"github.com/probe-lab/whisker/pkg/sui"
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
@@ -20,10 +21,16 @@ func publishCommand() *cli.Command {
 		ArgsUsage: "<file>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "publisher",
-				Usage:    "Walrus publisher base URL",
-				Sources:  cli.EnvVars("WKIT_PUBLISH_PUBLISHER_URL"),
-				Required: true,
+				Name:        "publisher",
+				Usage:       "Walrus publisher base URL",
+				DefaultText: "derived from --network",
+				Sources:     cli.EnvVars("WKIT_PUBLISH_PUBLISHER_URL"),
+			},
+			&cli.StringFlag{
+				Name:    "network",
+				Usage:   "network preset: testnet or mainnet (sets --publisher default)",
+				Value:   "testnet",
+				Sources: cli.EnvVars("WKIT_PUBLISH_NETWORK"),
 			},
 			&cli.UintFlag{
 				Name:    "epochs",
@@ -80,7 +87,11 @@ func runPublish(ctx context.Context, cmd *cli.Command) error {
 		SendTo:    sendTo,
 	}
 
-	client := walrus.NewPublisherClient(cmd.String("publisher"))
+	cfg, err := network.Defaults(cmd.String("network"))
+	if err != nil {
+		return err
+	}
+	client := walrus.NewPublisherClient(flagOr(cmd, "publisher", cfg.Publisher))
 
 	slog.Info("uploading blob", "file", filePath, "size", info.Size(), "epochs", opts.Epochs, "deletable", opts.Deletable, "send_to", opts.SendTo)
 

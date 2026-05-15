@@ -14,6 +14,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/probe-lab/whisker/pkg/network"
 	"github.com/probe-lab/whisker/pkg/sui"
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
@@ -24,16 +25,21 @@ func watchCommand() *cli.Command {
 		Usage: "Watch Walrus events on Sui and print them to stdout as newline-delimited JSON",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "rpc-url",
-				Usage:    "Sui JSON-RPC endpoint URL",
-				Sources:  cli.EnvVars("WKIT_WATCH_RPC_URL"),
-				Required: true,
+				Name:        "rpc-url",
+				Usage:       "Sui JSON-RPC endpoint URL",
+				DefaultText: "derived from --network",
+				Sources:     cli.EnvVars("WKIT_WATCH_RPC_URL"),
 			},
 			&cli.StringFlag{
 				Name:    "system-object",
 				Usage:   "Walrus system object ID on Sui; package IDs are derived from it",
-				Value:   walrusTestnetSystemObject,
 				Sources: cli.EnvVars("WKIT_WATCH_SYSTEM_OBJECT"),
+			},
+			&cli.StringFlag{
+				Name:    "network",
+				Usage:   "network preset: testnet or mainnet (sets --rpc-url and --system-object defaults)",
+				Value:   "testnet",
+				Sources: cli.EnvVars("WKIT_WATCH_NETWORK"),
 			},
 			&cli.DurationFlag{
 				Name:    "poll-interval",
@@ -56,10 +62,24 @@ func watchCommand() *cli.Command {
 	}
 }
 
-func runWatch(ctx context.Context, cmd *cli.Command) error {
-	client := sui.NewClient(cmd.String("rpc-url"))
+func flagOr(cmd *cli.Command, name, fallback string) string {
+	if v := cmd.String(name); v != "" {
+		return v
+	}
+	return fallback
+}
 
-	sysInfo, err := client.FetchWalrusSystemInfo(ctx, cmd.String("system-object"))
+func runWatch(ctx context.Context, cmd *cli.Command) error {
+	cfg, err := network.Defaults(cmd.String("network"))
+	if err != nil {
+		return err
+	}
+	rpcURL := flagOr(cmd, "rpc-url", cfg.RPCURL)
+	systemObject := flagOr(cmd, "system-object", cfg.SystemObject)
+
+	client := sui.NewClient(rpcURL)
+
+	sysInfo, err := client.FetchWalrusSystemInfo(ctx, systemObject)
 	if err != nil {
 		return fmt.Errorf("discover walrus package IDs: %w", err)
 	}
@@ -90,7 +110,7 @@ func runWatch(ctx context.Context, cmd *cli.Command) error {
 
 	enc := json.NewEncoder(os.Stdout)
 	slog.Info("watching walrus events",
-		"rpc", cmd.String("rpc-url"),
+		"rpc", rpcURL,
 		"package_id", sysInfo.PackageID,
 		"tx_package_id", sysInfo.TxPackageID,
 	)

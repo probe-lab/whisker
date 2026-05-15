@@ -21,19 +21,11 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/probe-lab/whisker/pkg/db"
+	"github.com/probe-lab/whisker/pkg/network"
 	"github.com/probe-lab/whisker/pkg/probe"
 	"github.com/probe-lab/whisker/pkg/sui"
 	"github.com/probe-lab/whisker/pkg/wait"
 	"github.com/probe-lab/whisker/pkg/walrus"
-)
-
-const (
-	testnetPublisher  = "https://publisher.walrus-testnet.walrus.space"
-	testnetAggregator = "https://aggregator.walrus-testnet.walrus.space"
-	testnetRPCURL     = "https://fullnode.testnet.sui.io:443"
-	// defaultSystemObjectID is the Walrus system object on Sui testnet.
-	// Both package IDs are derived from this object at startup.
-	defaultSystemObjectID = "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af"
 )
 
 var runCmd = &cli.Command{
@@ -41,22 +33,22 @@ var runCmd = &cli.Command{
 	Usage: "Start probes",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:    "publisher",
-			Usage:   "Walrus publisher base URL",
-			Value:   testnetPublisher,
-			Sources: cli.EnvVars("WHISKER_PUBLISHER_URL"),
+			Name:        "publisher",
+			Usage:       "Walrus publisher base URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_PUBLISHER_URL"),
 		},
 		&cli.StringFlag{
-			Name:    "aggregator",
-			Usage:   "Walrus aggregator base URL",
-			Value:   testnetAggregator,
-			Sources: cli.EnvVars("WHISKER_AGGREGATOR_URL"),
+			Name:        "aggregator",
+			Usage:       "Walrus aggregator base URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_AGGREGATOR_URL"),
 		},
 		&cli.StringFlag{
-			Name:    "rpc-url",
-			Usage:   "Sui JSON-RPC endpoint URL",
-			Value:   testnetRPCURL,
-			Sources: cli.EnvVars("WHISKER_SUI_RPC_URL"),
+			Name:        "rpc-url",
+			Usage:       "Sui JSON-RPC endpoint URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_SUI_RPC_URL"),
 		},
 		&cli.DurationFlag{
 			Name:    "interval",
@@ -122,10 +114,10 @@ var runCmd = &cli.Command{
 			Sources: cli.EnvVars("WHISKER_SUI_SIGNER"),
 		},
 		&cli.StringFlag{
-			Name:    "walrus-system-object",
-			Usage:   "Walrus system object ID on Sui",
-			Value:   defaultSystemObjectID,
-			Sources: cli.EnvVars("WHISKER_WALRUS_SYSTEM_OBJECT_ID"),
+			Name:        "walrus-system-object",
+			Usage:       "Walrus system object ID on Sui",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_WALRUS_SYSTEM_OBJECT_ID"),
 		},
 		&cli.StringFlag{
 			Name:    "network",
@@ -147,15 +139,31 @@ var runCmd = &cli.Command{
 	Action: run,
 }
 
+func resolveFlag(cmd *cli.Command, name, fallback string) string {
+	if v := cmd.String(name); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func run(ctx context.Context, cmd *cli.Command) error {
 	runID, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("generate run ID: %w", err)
 	}
 
-	suiClient := sui.NewClient(cmd.String("rpc-url"))
+	defaults, err := network.Defaults(cmd.String("network"))
+	if err != nil {
+		return err
+	}
+	publisher := resolveFlag(cmd, "publisher", defaults.Publisher)
+	aggregator := resolveFlag(cmd, "aggregator", defaults.Aggregator)
+	rpcURL := resolveFlag(cmd, "rpc-url", defaults.RPCURL)
+	systemObject := resolveFlag(cmd, "walrus-system-object", defaults.SystemObject)
 
-	sysInfo, err := suiClient.FetchWalrusSystemInfo(ctx, cmd.String("walrus-system-object"))
+	suiClient := sui.NewClient(rpcURL)
+
+	sysInfo, err := suiClient.FetchWalrusSystemInfo(ctx, systemObject)
 	if err != nil {
 		return fmt.Errorf("discover walrus package IDs: %w", err)
 	}
@@ -166,8 +174,8 @@ func run(ctx context.Context, cmd *cli.Command) error {
 
 	checker := &probe.StorageChecker{
 		RunID:        runID.String(),
-		Publisher:    walrus.NewPublisherClient(cmd.String("publisher")),
-		Aggregator:   walrus.NewAggregatorClient(cmd.String("aggregator")),
+		Publisher:    walrus.NewPublisherClient(publisher),
+		Aggregator:   walrus.NewAggregatorClient(aggregator),
 		Sui:          suiClient,
 		TxPackageID:  sysInfo.TxPackageID,
 		PollInterval: cmd.Duration("poll-interval"),
@@ -183,12 +191,12 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		if err != nil {
 			return fmt.Errorf("load signer: %w", err)
 		}
-		executor, err := sui.NewTransactionExecutor(cmd.String("rpc-url"), signer)
+		executor, err := sui.NewTransactionExecutor(rpcURL, signer)
 		if err != nil {
 			return fmt.Errorf("create transaction executor: %w", err)
 		}
 		checker.Executor = executor
-		checker.SystemObjectID = cmd.String("walrus-system-object")
+		checker.SystemObjectID = systemObject
 	}
 
 	dir := cmd.String("tmp-dir")
@@ -206,11 +214,11 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		"interval", cmd.Duration("interval"),
 		"delay", cmd.Duration("delay"),
 		"probe_sizes", sizes,
-		"publisher", cmd.String("publisher"),
-		"aggregator", cmd.String("aggregator"),
+		"publisher", publisher,
+		"aggregator", aggregator,
 	)
 
-	writer, err := chooseWriter(ctx, cmd, runID.String())
+	writer, err := chooseWriter(ctx, cmd, runID.String(), publisher, aggregator)
 	if err != nil {
 		return err
 	}
@@ -239,7 +247,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	return loopErr
 }
 
-func chooseWriter(ctx context.Context, cmd *cli.Command, runID string) (probe.ResultWriter, error) {
+func chooseWriter(ctx context.Context, cmd *cli.Command, runID, publisher, aggregator string) (probe.ResultWriter, error) {
 	if cmd.Bool("dry-run") {
 		return &probe.LogWriter{}, nil
 	}
@@ -257,8 +265,8 @@ func chooseWriter(ctx context.Context, cmd *cli.Command, runID string) (probe.Re
 		}
 		client.Network = cmd.String("network")
 		client.ProbeLocation = cmd.String("probe-location")
-		client.PublisherURL = cmd.String("publisher")
-		client.AggregatorURL = cmd.String("aggregator")
+		client.PublisherURL = publisher
+		client.AggregatorURL = aggregator
 		return client, nil
 	}
 	return &probe.LogWriter{}, nil

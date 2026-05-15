@@ -10,12 +10,8 @@ import (
 	sdktx "github.com/block-vision/sui-go-sdk/transaction"
 	"github.com/urfave/cli/v3"
 
+	"github.com/probe-lab/whisker/pkg/network"
 	"github.com/probe-lab/whisker/pkg/sui"
-)
-
-const (
-	walrusTestnetSystemObject = "0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af"
-	walrusMainnetSystemObject = "0x2134d52768ea07e8c43570ef975eb3e4c27a39fa6396bef985b5abc58d03ddd2"
 )
 
 func deleteCommand() *cli.Command {
@@ -25,10 +21,10 @@ func deleteCommand() *cli.Command {
 		ArgsUsage: "<sui-object-id>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "rpc-url",
-				Usage:    "Sui JSON-RPC endpoint URL",
-				Sources:  cli.EnvVars("WKIT_DELETE_RPC_URL"),
-				Required: true,
+				Name:        "rpc-url",
+				Usage:       "Sui JSON-RPC endpoint URL",
+				DefaultText: "derived from --network",
+				Sources:     cli.EnvVars("WKIT_DELETE_RPC_URL"),
 			},
 			&cli.StringFlag{
 				Name:    "system",
@@ -37,7 +33,7 @@ func deleteCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:    "network",
-				Usage:   "network preset: testnet or mainnet (sets --system default)",
+				Usage:   "network preset: testnet or mainnet (sets --system and --rpc-url defaults)",
 				Value:   "testnet",
 				Sources: cli.EnvVars("WKIT_DELETE_NETWORK"),
 			},
@@ -67,13 +63,17 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 	}
 	slog.Debug("loaded signer", "address", signer.Address)
 
-	rpcURL := cmd.String("rpc-url")
+	cfg, err := network.Defaults(cmd.String("network"))
+	if err != nil {
+		return err
+	}
+	rpcURL := flagOr(cmd, "rpc-url", cfg.RPCURL)
+	systemObjectID := flagOr(cmd, "system", cfg.SystemObject)
+
 	exec, err := sui.NewTransactionExecutor(rpcURL, signer)
 	if err != nil {
 		return fmt.Errorf("create executor: %w", err)
 	}
-
-	systemObjectID := resolveSystemObject(cmd)
 
 	sysInfo, err := sui.NewClient(rpcURL).FetchWalrusSystemInfo(ctx, systemObjectID)
 	if err != nil {
@@ -121,14 +121,4 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 
 	fmt.Fprintln(os.Stdout, digest)
 	return nil
-}
-
-func resolveSystemObject(cmd *cli.Command) string {
-	if v := cmd.String("system"); v != "" {
-		return v
-	}
-	if cmd.String("network") == "mainnet" {
-		return walrusMainnetSystemObject
-	}
-	return walrusTestnetSystemObject
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/probe-lab/whisker/pkg/network"
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
@@ -20,10 +21,16 @@ func fetchCommand() *cli.Command {
 		ArgsUsage: "<blob-id>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "aggregator",
-				Usage:    "Walrus aggregator base URL",
-				Sources:  cli.EnvVars("WKIT_FETCH_AGGREGATOR"),
-				Required: true,
+				Name:        "aggregator",
+				Usage:       "Walrus aggregator base URL",
+				DefaultText: "derived from --network",
+				Sources:     cli.EnvVars("WKIT_FETCH_AGGREGATOR"),
+			},
+			&cli.StringFlag{
+				Name:    "network",
+				Usage:   "network preset: testnet or mainnet (sets --aggregator default)",
+				Value:   "testnet",
+				Sources: cli.EnvVars("WKIT_FETCH_NETWORK"),
 			},
 			&cli.StringFlag{
 				Name:    "out",
@@ -52,7 +59,11 @@ func runFetch(ctx context.Context, cmd *cli.Command) error {
 		outPath = blobID
 	}
 
-	client := walrus.NewAggregatorClient(cmd.String("aggregator"))
+	cfg, err := network.Defaults(cmd.String("network"))
+	if err != nil {
+		return err
+	}
+	client := walrus.NewAggregatorClient(flagOr(cmd, "aggregator", cfg.Aggregator))
 	client.HTTPClient.Timeout = cmd.Duration("timeout")
 
 	slog.Info("fetching blob", "blob_id", blobID, "out", outPath)
