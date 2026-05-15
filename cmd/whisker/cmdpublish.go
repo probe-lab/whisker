@@ -14,43 +14,41 @@ import (
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
-func publishCommand() *cli.Command {
-	return &cli.Command{
-		Name:      "publish",
-		Usage:     "Upload a file to a Walrus publisher",
-		ArgsUsage: "<file>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "publisher",
-				Usage:       "Walrus publisher base URL",
-				DefaultText: "derived from --network",
-				Sources:     cli.EnvVars("WKIT_PUBLISH_PUBLISHER_URL"),
-			},
-			&cli.StringFlag{
-				Name:    "network",
-				Usage:   "network preset: testnet or mainnet (sets --publisher default)",
-				Value:   "testnet",
-				Sources: cli.EnvVars("WKIT_PUBLISH_NETWORK"),
-			},
-			&cli.UintFlag{
-				Name:    "epochs",
-				Usage:   "number of epochs to store the blob (0 uses publisher default)",
-				Value:   1,
-				Sources: cli.EnvVars("WKIT_PUBLISH_EPOCHS"),
-			},
-			&cli.BoolFlag{
-				Name:    "deletable",
-				Usage:   "make the blob deletable by the owner",
-				Sources: cli.EnvVars("WKIT_PUBLISH_DELETABLE"),
-			},
-			&cli.StringFlag{
-				Name:    "send-to",
-				Usage:   "Sui address to receive the blob object (default: address derived from --private-key if set)",
-				Sources: cli.EnvVars("WKIT_PUBLISH_SEND_TO"),
-			},
+var publishCmd = &cli.Command{
+	Name:      "publish",
+	Usage:     "Upload a file to a Walrus publisher",
+	ArgsUsage: "<file>",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "publisher",
+			Usage:       "Walrus publisher base URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_PUBLISH_PUBLISHER_URL"),
 		},
-		Action: runPublish,
-	}
+		&cli.StringFlag{
+			Name:    "network",
+			Usage:   "network preset: testnet or mainnet (sets --publisher default)",
+			Value:   "testnet",
+			Sources: cli.EnvVars("WHISKER_PUBLISH_NETWORK"),
+		},
+		&cli.UintFlag{
+			Name:    "epochs",
+			Usage:   "number of epochs to store the blob (0 uses publisher default)",
+			Value:   1,
+			Sources: cli.EnvVars("WHISKER_PUBLISH_EPOCHS"),
+		},
+		&cli.BoolFlag{
+			Name:    "deletable",
+			Usage:   "make the blob deletable by the owner",
+			Sources: cli.EnvVars("WHISKER_PUBLISH_DELETABLE"),
+		},
+		&cli.StringFlag{
+			Name:    "send-to",
+			Usage:   "Sui address to receive the blob object (default: address derived from --private-key if set)",
+			Sources: cli.EnvVars("WHISKER_PUBLISH_SEND_TO"),
+		},
+	},
+	Action: runPublish,
 }
 
 func runPublish(ctx context.Context, cmd *cli.Command) error {
@@ -91,7 +89,7 @@ func runPublish(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	client := walrus.NewPublisherClient(flagOr(cmd, "publisher", cfg.Publisher))
+	client := walrus.NewPublisherClient(resolveFlag(cmd, "publisher", cfg.Publisher))
 
 	slog.Info("uploading blob", "file", filePath, "size", info.Size(), "epochs", opts.Epochs, "deletable", opts.Deletable, "send_to", opts.SendTo)
 

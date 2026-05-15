@@ -55,23 +55,17 @@ build:
     mkdir -p dist
     go build -o dist/whisker ./cmd/whisker
 
-build-all: build build-wkit
+watch: build
+    ./dist/whisker watch --network {{network}} --human
 
-build-wkit:
-    mkdir -p dist
-    go build -o dist/wkit ./cmd/wkit
+fetch blob_id: build
+    ./dist/whisker fetch --network {{network}} --out {{blob_id}} {{blob_id}}
 
-watch: build-wkit
-    ./dist/wkit watch --network {{network}} --human
+publish file: build
+    ./dist/whisker publish --network {{network}} --deletable {{file}}
 
-fetch blob_id: build-wkit
-    ./dist/wkit fetch --network {{network}} --out {{blob_id}} {{blob_id}}
-
-publish file: build-wkit
-    ./dist/wkit publish --network {{network}} --deletable {{file}}
-
-delete object_id: build-wkit
-    ./dist/wkit delete --network {{network}} {{object_id}}
+delete object_id: build
+    ./dist/whisker delete --network {{network}} {{object_id}}
 
 
 

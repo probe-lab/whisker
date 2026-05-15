@@ -14,38 +14,36 @@ import (
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
-func fetchCommand() *cli.Command {
-	return &cli.Command{
-		Name:      "fetch",
-		Usage:     "Fetch a blob from a Walrus aggregator",
-		ArgsUsage: "<blob-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "aggregator",
-				Usage:       "Walrus aggregator base URL",
-				DefaultText: "derived from --network",
-				Sources:     cli.EnvVars("WKIT_FETCH_AGGREGATOR"),
-			},
-			&cli.StringFlag{
-				Name:    "network",
-				Usage:   "network preset: testnet or mainnet (sets --aggregator default)",
-				Value:   "testnet",
-				Sources: cli.EnvVars("WKIT_FETCH_NETWORK"),
-			},
-			&cli.StringFlag{
-				Name:    "out",
-				Usage:   "output file path (default: blob ID as filename)",
-				Sources: cli.EnvVars("WKIT_FETCH_OUT"),
-			},
-			&cli.DurationFlag{
-				Name:    "timeout",
-				Usage:   "request timeout",
-				Value:   60 * time.Second,
-				Sources: cli.EnvVars("WKIT_FETCH_TIMEOUT"),
-			},
+var fetchCmd = &cli.Command{
+	Name:      "fetch",
+	Usage:     "Fetch a blob from a Walrus aggregator",
+	ArgsUsage: "<blob-id>",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "aggregator",
+			Usage:       "Walrus aggregator base URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_FETCH_AGGREGATOR"),
 		},
-		Action: runFetch,
-	}
+		&cli.StringFlag{
+			Name:    "network",
+			Usage:   "network preset: testnet or mainnet (sets --aggregator default)",
+			Value:   "testnet",
+			Sources: cli.EnvVars("WHISKER_FETCH_NETWORK"),
+		},
+		&cli.StringFlag{
+			Name:    "out",
+			Usage:   "output file path (default: blob ID as filename)",
+			Sources: cli.EnvVars("WHISKER_FETCH_OUT"),
+		},
+		&cli.DurationFlag{
+			Name:    "timeout",
+			Usage:   "request timeout",
+			Value:   60 * time.Second,
+			Sources: cli.EnvVars("WHISKER_FETCH_TIMEOUT"),
+		},
+	},
+	Action: runFetch,
 }
 
 func runFetch(ctx context.Context, cmd *cli.Command) error {
@@ -63,12 +61,12 @@ func runFetch(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	client := walrus.NewAggregatorClient(flagOr(cmd, "aggregator", cfg.Aggregator))
+	client := walrus.NewAggregatorClient(resolveFlag(cmd, "aggregator", cfg.Aggregator))
 	client.HTTPClient.Timeout = cmd.Duration("timeout")
 
 	slog.Info("fetching blob", "blob_id", blobID, "out", outPath)
 
-	tmp, err := os.CreateTemp(filepath.Dir(outPath), ".wkit-fetch-*")
+	tmp, err := os.CreateTemp(filepath.Dir(outPath), ".whisker-fetch-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}

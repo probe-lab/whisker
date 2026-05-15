@@ -18,8 +18,19 @@ func main() {
 var rootCmd, _ = plcli.NewRootCommand(&cli.Command{
 	Name:  "whisker",
 	Usage: "A Walrus network availability monitor",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "private-key",
+			Usage:   "Sui private key: suiprivkey bech32 or BIP-39 mnemonic",
+			Sources: cli.EnvVars("WHISKER_SUI_SIGNER"),
+		},
+	},
 	Commands: []*cli.Command{
 		runCmd,
 		healthCmd,
+		watchCmd,
+		fetchCmd,
+		publishCmd,
+		deleteCmd,
 	},
 })

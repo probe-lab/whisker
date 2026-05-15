@@ -19,54 +19,45 @@ import (
 	"github.com/probe-lab/whisker/pkg/walrus"
 )
 
-func watchCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "watch",
-		Usage: "Watch Walrus events on Sui and print them to stdout as newline-delimited JSON",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "rpc-url",
-				Usage:       "Sui JSON-RPC endpoint URL",
-				DefaultText: "derived from --network",
-				Sources:     cli.EnvVars("WKIT_WATCH_RPC_URL"),
-			},
-			&cli.StringFlag{
-				Name:    "system-object",
-				Usage:   "Walrus system object ID on Sui; package IDs are derived from it",
-				Sources: cli.EnvVars("WKIT_WATCH_SYSTEM_OBJECT"),
-			},
-			&cli.StringFlag{
-				Name:    "network",
-				Usage:   "network preset: testnet or mainnet (sets --rpc-url and --system-object defaults)",
-				Value:   "testnet",
-				Sources: cli.EnvVars("WKIT_WATCH_NETWORK"),
-			},
-			&cli.DurationFlag{
-				Name:    "poll-interval",
-				Usage:   "how often to poll for new events when caught up",
-				Value:   5 * time.Second,
-				Sources: cli.EnvVars("WKIT_WATCH_POLL_INTERVAL"),
-			},
-			&cli.StringFlag{
-				Name:    "cursor",
-				Usage:   "JSON-encoded EventCursor to resume from (omit to start from latest)",
-				Sources: cli.EnvVars("WKIT_WATCH_CURSOR"),
-			},
-			&cli.BoolFlag{
-				Name:    "human",
-				Usage:   "print events in human-readable format instead of JSON",
-				Sources: cli.EnvVars("WKIT_WATCH_HUMAN"),
-			},
+var watchCmd = &cli.Command{
+	Name:  "watch",
+	Usage: "Watch Walrus events on Sui and print them to stdout as newline-delimited JSON",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "rpc-url",
+			Usage:       "Sui JSON-RPC endpoint URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_WATCH_RPC_URL"),
 		},
-		Action: runWatch,
-	}
-}
-
-func flagOr(cmd *cli.Command, name, fallback string) string {
-	if v := cmd.String(name); v != "" {
-		return v
-	}
-	return fallback
+		&cli.StringFlag{
+			Name:    "system-object",
+			Usage:   "Walrus system object ID on Sui; package IDs are derived from it",
+			Sources: cli.EnvVars("WHISKER_WATCH_SYSTEM_OBJECT"),
+		},
+		&cli.StringFlag{
+			Name:    "network",
+			Usage:   "network preset: testnet or mainnet (sets --rpc-url and --system-object defaults)",
+			Value:   "testnet",
+			Sources: cli.EnvVars("WHISKER_WATCH_NETWORK"),
+		},
+		&cli.DurationFlag{
+			Name:    "poll-interval",
+			Usage:   "how often to poll for new events when caught up",
+			Value:   5 * time.Second,
+			Sources: cli.EnvVars("WHISKER_WATCH_POLL_INTERVAL"),
+		},
+		&cli.StringFlag{
+			Name:    "cursor",
+			Usage:   "JSON-encoded EventCursor to resume from (omit to start from latest)",
+			Sources: cli.EnvVars("WHISKER_WATCH_CURSOR"),
+		},
+		&cli.BoolFlag{
+			Name:    "human",
+			Usage:   "print events in human-readable format instead of JSON",
+			Sources: cli.EnvVars("WHISKER_WATCH_HUMAN"),
+		},
+	},
+	Action: runWatch,
 }
 
 func runWatch(ctx context.Context, cmd *cli.Command) error {
@@ -74,8 +65,8 @@ func runWatch(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	rpcURL := flagOr(cmd, "rpc-url", cfg.RPCURL)
-	systemObject := flagOr(cmd, "system-object", cfg.SystemObject)
+	rpcURL := resolveFlag(cmd, "rpc-url", cfg.RPCURL)
+	systemObject := resolveFlag(cmd, "system-object", cfg.SystemObject)
 
 	client := sui.NewClient(rpcURL)
 

@@ -14,37 +14,35 @@ import (
 	"github.com/probe-lab/whisker/pkg/sui"
 )
 
-func deleteCommand() *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete a deletable Walrus blob by Sui object ID",
-		ArgsUsage: "<sui-object-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "rpc-url",
-				Usage:       "Sui JSON-RPC endpoint URL",
-				DefaultText: "derived from --network",
-				Sources:     cli.EnvVars("WKIT_DELETE_RPC_URL"),
-			},
-			&cli.StringFlag{
-				Name:    "system",
-				Usage:   "Walrus system object ID",
-				Sources: cli.EnvVars("WKIT_DELETE_SYSTEM_OBJECT"),
-			},
-			&cli.StringFlag{
-				Name:    "network",
-				Usage:   "network preset: testnet or mainnet (sets --system and --rpc-url defaults)",
-				Value:   "testnet",
-				Sources: cli.EnvVars("WKIT_DELETE_NETWORK"),
-			},
-			&cli.Uint64Flag{
-				Name:    "gas-budget",
-				Usage:   "gas budget in MIST (default 0.05 SUI)",
-				Sources: cli.EnvVars("WKIT_DELETE_GAS_BUDGET"),
-			},
+var deleteCmd = &cli.Command{
+	Name:      "delete",
+	Usage:     "Delete a deletable Walrus blob by Sui object ID",
+	ArgsUsage: "<sui-object-id>",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:        "rpc-url",
+			Usage:       "Sui JSON-RPC endpoint URL",
+			DefaultText: "derived from --network",
+			Sources:     cli.EnvVars("WHISKER_DELETE_RPC_URL"),
 		},
-		Action: runDelete,
-	}
+		&cli.StringFlag{
+			Name:    "system",
+			Usage:   "Walrus system object ID",
+			Sources: cli.EnvVars("WHISKER_DELETE_SYSTEM_OBJECT"),
+		},
+		&cli.StringFlag{
+			Name:    "network",
+			Usage:   "network preset: testnet or mainnet (sets --system and --rpc-url defaults)",
+			Value:   "testnet",
+			Sources: cli.EnvVars("WHISKER_DELETE_NETWORK"),
+		},
+		&cli.Uint64Flag{
+			Name:    "gas-budget",
+			Usage:   "gas budget in MIST (default 0.05 SUI)",
+			Sources: cli.EnvVars("WHISKER_DELETE_GAS_BUDGET"),
+		},
+	},
+	Action: runDelete,
 }
 
 func runDelete(ctx context.Context, cmd *cli.Command) error {
@@ -67,8 +65,8 @@ func runDelete(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	rpcURL := flagOr(cmd, "rpc-url", cfg.RPCURL)
-	systemObjectID := flagOr(cmd, "system", cfg.SystemObject)
+	rpcURL := resolveFlag(cmd, "rpc-url", cfg.RPCURL)
+	systemObjectID := resolveFlag(cmd, "system", cfg.SystemObject)
 
 	exec, err := sui.NewTransactionExecutor(rpcURL, signer)
 	if err != nil {
