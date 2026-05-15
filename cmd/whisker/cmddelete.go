@@ -30,12 +30,7 @@ var deleteCmd = &cli.Command{
 			Usage:   "Walrus system object ID",
 			Sources: cli.EnvVars("WHISKER_DELETE_SYSTEM_OBJECT"),
 		},
-		&cli.StringFlag{
-			Name:    "network",
-			Usage:   "network preset: testnet or mainnet (sets --system and --rpc-url defaults)",
-			Value:   "testnet",
-			Sources: cli.EnvVars("WHISKER_DELETE_NETWORK"),
-		},
+		networkFlag,
 		&cli.Uint64Flag{
 			Name:    "gas-budget",
 			Usage:   "gas budget in MIST (default 0.05 SUI)",

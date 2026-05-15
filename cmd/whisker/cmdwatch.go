@@ -34,12 +34,7 @@ var watchCmd = &cli.Command{
 			Usage:   "Walrus system object ID on Sui; package IDs are derived from it",
 			Sources: cli.EnvVars("WHISKER_WATCH_SYSTEM_OBJECT"),
 		},
-		&cli.StringFlag{
-			Name:    "network",
-			Usage:   "network preset: testnet or mainnet (sets --rpc-url and --system-object defaults)",
-			Value:   "testnet",
-			Sources: cli.EnvVars("WHISKER_WATCH_NETWORK"),
-		},
+		networkFlag,
 		&cli.DurationFlag{
 			Name:    "poll-interval",
 			Usage:   "how often to poll for new events when caught up",

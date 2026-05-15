@@ -25,12 +25,7 @@ var publishCmd = &cli.Command{
 			DefaultText: "derived from --network",
 			Sources:     cli.EnvVars("WHISKER_PUBLISH_PUBLISHER_URL"),
 		},
-		&cli.StringFlag{
-			Name:    "network",
-			Usage:   "network preset: testnet or mainnet (sets --publisher default)",
-			Value:   "testnet",
-			Sources: cli.EnvVars("WHISKER_PUBLISH_NETWORK"),
-		},
+		networkFlag,
 		&cli.UintFlag{
 			Name:    "epochs",
 			Usage:   "number of epochs to store the blob (0 uses publisher default)",

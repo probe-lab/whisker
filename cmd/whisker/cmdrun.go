@@ -109,22 +109,12 @@ var runCmd = &cli.Command{
 			Sources: cli.EnvVars("WHISKER_JSON_OUT"),
 		},
 		&cli.StringFlag{
-			Name:    "signer",
-			Usage:   "Sui private key (suiprivkey-prefixed bech32) or BIP-39 mnemonic; enables blob deletion and storage recycling after each probe",
-			Sources: cli.EnvVars("WHISKER_SUI_SIGNER"),
-		},
-		&cli.StringFlag{
 			Name:        "walrus-system-object",
 			Usage:       "Walrus system object ID on Sui",
 			DefaultText: "derived from --network",
 			Sources:     cli.EnvVars("WHISKER_WALRUS_SYSTEM_OBJECT_ID"),
 		},
-		&cli.StringFlag{
-			Name:    "network",
-			Usage:   "network name written to probe results (mainnet or testnet)",
-			Value:   "testnet",
-			Sources: cli.EnvVars("WHISKER_NETWORK"),
-		},
+		networkFlag,
 		&cli.StringFlag{
 			Name:    "probe-location",
 			Usage:   "location identifier written to probe results",
@@ -137,13 +127,6 @@ var runCmd = &cli.Command{
 		},
 	},
 	Action: run,
-}
-
-func resolveFlag(cmd *cli.Command, name, fallback string) string {
-	if v := cmd.String(name); v != "" {
-		return v
-	}
-	return fallback
 }
 
 func run(ctx context.Context, cmd *cli.Command) error {
@@ -186,7 +169,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		},
 	}
 
-	if secret := cmd.String("signer"); secret != "" {
+	if secret := cmd.Root().String("private-key"); secret != "" {
 		signer, err := sui.LoadSigner(secret)
 		if err != nil {
 			return fmt.Errorf("load signer: %w", err)

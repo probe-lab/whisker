@@ -25,12 +25,7 @@ var fetchCmd = &cli.Command{
 			DefaultText: "derived from --network",
 			Sources:     cli.EnvVars("WHISKER_FETCH_AGGREGATOR"),
 		},
-		&cli.StringFlag{
-			Name:    "network",
-			Usage:   "network preset: testnet or mainnet (sets --aggregator default)",
-			Value:   "testnet",
-			Sources: cli.EnvVars("WHISKER_FETCH_NETWORK"),
-		},
+		networkFlag,
 		&cli.StringFlag{
 			Name:    "out",
 			Usage:   "output file path (default: blob ID as filename)",
