@@ -45,6 +45,16 @@ type AlreadyCertifiedResult struct {
 	EndEpoch uint32
 }
 
+// HTTPStatusError is returned by UploadBlob when the publisher responds with a non-2xx status.
+type HTTPStatusError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *HTTPStatusError) Error() string {
+	return fmt.Sprintf("http status %d: %s", e.StatusCode, e.Body)
+}
+
 // PublisherClient uploads blobs to a Walrus publisher via the HTTP API.
 type PublisherClient struct {
 	BaseURL    string
@@ -109,7 +119,7 @@ func (c *PublisherClient) UploadBlob(ctx context.Context, r io.Reader, contentLe
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("http status %d: %s", resp.StatusCode, truncate(string(body), 200))
+		return nil, &HTTPStatusError{StatusCode: resp.StatusCode, Body: truncate(string(body), 200)}
 	}
 
 	return parseUploadResponse(body)

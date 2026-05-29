@@ -20,6 +20,15 @@ type ResultWriter interface {
 type LogWriter struct{}
 
 func (w *LogWriter) WriteStorageCheckResult(_ context.Context, r *StorageCheckResult) error {
+	if r.Failure != "" {
+		slog.Info("storage check failed",
+			"run_id", r.RunID,
+			"file_size", r.FileSize,
+			"status", r.Status,
+			"failure", r.Failure,
+		)
+		return nil
+	}
 	slog.Info("storage check complete",
 		"run_id", r.RunID,
 		"blob_id", r.BlobID,

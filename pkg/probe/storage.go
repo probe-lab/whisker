@@ -5,8 +5,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"log/slog"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -23,6 +23,17 @@ const (
 	StatusRetrievalPending = "retrieval_pending"
 	StatusRetrieved        = "retrieved"
 	StatusValidated        = "validated"
+)
+
+// Probe failure classifications recorded in StorageCheckResult.Failure.
+const (
+	FailureInternalError        = "internal_error"
+	FailureSuiRPCError          = "sui_rpc_error"
+	FailureUploadTooLarge       = "upload_too_large"
+	FailureUploadError          = "upload_error"
+	FailureRegistrationTimeout  = "registration_timeout"
+	FailureCertificationTimeout = "certification_timeout"
+	FailureDownloadError        = "download_error"
 )
 
 // StorageCheckResult holds all timing and verification data from one end-to-end
@@ -47,6 +58,10 @@ type StorageCheckResult struct {
 
 	ContentLengthMatch bool
 	ContentHashMatch   bool
+
+	// Failure is a classification of why the probe did not complete successfully.
+	// Empty when the probe succeeded. Status reflects the last phase reached.
+	Failure string
 }
 
 // StorageChecker runs end-to-end storage check cycles against a Walrus publisher
@@ -71,12 +86,16 @@ type StorageChecker struct {
 // Check executes one storage check: creates a temp file of the given size in dir,
 // uploads it, waits for BlobRegistered and BlobCertified events on Sui, downloads
 // the blob, then verifies length and SHA256 hash.
+//
+// The returned result is always non-nil. If the probe did not complete successfully,
+// result.Failure is set to one of the Failure* constants and the Go error return is
+// nil. A non-nil Go error means the context was cancelled and the probe loop should stop.
 func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*StorageCheckResult, error) {
 	result := &StorageCheckResult{RunID: c.RunID, FileSize: size, Status: StatusUploadPending}
 
 	tf, err := NewTempFile(dir, size)
 	if err != nil {
-		return nil, fmt.Errorf("create temp file: %w", err)
+		return failResult(ctx, result, FailureInternalError)
 	}
 	originalHash := tf.SHA256
 
@@ -85,7 +104,7 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 	if err != nil {
 		tf.Close()
 		tf.Remove()
-		return nil, fmt.Errorf("get latest event cursor: %w", err)
+		return failResult(ctx, result, FailureSuiRPCError)
 	}
 
 	uploadOpts := c.UploadOpts
@@ -98,7 +117,12 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 	tf.Close()
 	tf.Remove()
 	if err != nil {
-		return nil, fmt.Errorf("upload: %w", err)
+		var httpErr *walrus.HTTPStatusError
+		failure := FailureUploadError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusRequestEntityTooLarge {
+			failure = FailureUploadTooLarge
+		}
+		return failResult(ctx, result, failure)
 	}
 	result.UploadFinished = time.Now()
 	result.Status = StatusUploaded
@@ -138,13 +162,13 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 		return nil
 	})
 	if watchErr != nil && !errors.Is(watchErr, context.DeadlineExceeded) {
-		return nil, fmt.Errorf("watch events: %w", watchErr)
+		return failResult(ctx, result, FailureSuiRPCError)
 	}
 	if !registered {
-		return nil, fmt.Errorf("timed out waiting for BlobRegistered event for blob %s", result.BlobID)
+		return failResult(ctx, result, FailureRegistrationTimeout)
 	}
 	if !certified {
-		return nil, fmt.Errorf("timed out waiting for BlobCertified event for blob %s", result.BlobID)
+		return failResult(ctx, result, FailureCertificationTimeout)
 	}
 
 	// Download into a hash writer to verify content integrity.
@@ -153,7 +177,7 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 	result.DownloadStarted = time.Now()
 	fetchResult, err := c.Aggregator.FetchBlob(ctx, result.BlobID, h)
 	if err != nil {
-		return nil, fmt.Errorf("download: %w", err)
+		return failResult(ctx, result, FailureDownloadError)
 	}
 	result.FirstByteAt = result.DownloadStarted.Add(fetchResult.TTFB)
 	result.DownloadFinished = result.DownloadStarted.Add(fetchResult.TTLB)
@@ -179,6 +203,16 @@ func (c *StorageChecker) Check(ctx context.Context, dir string, size int64) (*St
 		}
 	}
 
+	return result, nil
+}
+
+// failResult sets result.Failure and returns (result, nil) for probe-level failures.
+// If the context was cancelled it returns (nil, ctx.Err()) to stop the probe loop.
+func failResult(ctx context.Context, result *StorageCheckResult, failure string) (*StorageCheckResult, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	result.Failure = failure
 	return result, nil
 }
 

@@ -27,4 +27,5 @@ type StorageCheck struct {
 	Status               string     `ch:"status"`
 	ContentLengthOK      bool       `ch:"content_length_ok"`
 	ContentHashOK        bool       `ch:"content_hash_ok"`
+	Failure              string     `ch:"failure"`
 }

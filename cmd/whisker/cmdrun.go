@@ -213,11 +213,14 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		size := sizes[rand.N(len(sizes))]
 		result, err := checker.Check(ctx, dir, size)
 		if err != nil {
-			slog.Error("storage check failed", "err", err)
-			metrics.recordError(ctx, size)
-			return nil // log and continue; don't stop the loop on individual failures
+			return err // context cancelled; stop the loop
 		}
-		metrics.record(ctx, result)
+		if result.Failure != "" {
+			slog.Error("storage check failed", "failure", result.Failure, "status", result.Status, "size", result.FileSize)
+			metrics.recordError(ctx, result.FileSize)
+		} else {
+			metrics.record(ctx, result)
+		}
 		if err := writer.WriteStorageCheckResult(ctx, result); err != nil {
 			slog.Error("write result failed", "err", err)
 		}

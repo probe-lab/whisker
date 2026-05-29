@@ -94,6 +94,7 @@ func (c *ClickhouseClient) toRow(r *probe.StorageCheckResult) StorageCheck {
 		row.BytesRetrieved = &v
 	}
 	row.Status = r.Status
+	row.Failure = r.Failure
 
 	return row
 }
